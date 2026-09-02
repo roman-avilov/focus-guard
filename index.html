@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Guard</title>
+<style>
+  :root{
+    --bg:#0d1014; --panel:#151a21; --panel-2:#1c232c; --line:#28313d;
+    --txt:#e6edf5; --muted:#8b98a8;
+    --ok:#3ddc84; --warn:#ffb020; --bad:#ff4d5e; --accent:#5b9dff;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);min-height:100vh}
+  .app{max-width:1180px;margin:0 auto;padding:22px 18px 40px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  h1{font-size:19px;margin:0;letter-spacing:.2px}
+  h1 span{color:var(--muted);font-weight:400}
+  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 4px rgba(255,255,255,.04)}
+  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px}
+  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+  .stage{position:relative;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:4/3}
+  .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .stage .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+    color:var(--muted);font-size:14px;padding:24px;line-height:1.6}
+  .badge{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:8px;
+    background:rgba(10,13,17,.72);backdrop-filter:blur(6px);border:1px solid var(--line);
+    padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600}
+  .fps{position:absolute;right:12px;top:12px;background:rgba(10,13,17,.72);border:1px solid var(--line);
+    padding:5px 10px;border-radius:999px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+  .panel h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  button{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;
+    background:var(--accent);color:#08111f;width:100%;transition:filter .15s}
+  button:hover{filter:brightness(1.08)}
+  button.ghost{background:var(--panel-2);color:var(--txt);border:1px solid var(--line)}
+  button:disabled{opacity:.45;cursor:not-allowed;filter:none}
+  .row{display:flex;gap:8px}
+  .file{display:block;border:1px dashed var(--line);border-radius:10px;padding:12px;text-align:center;
+    color:var(--muted);font-size:13px;cursor:pointer;background:var(--panel-2)}
+  .file:hover{border-color:var(--accent);color:var(--txt)}
+  .file input{display:none}
+  .fname{color:var(--ok);font-size:12px;margin-top:8px;word-break:break-all}
+
+  .metric{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;color:var(--muted)}
+  .metric b{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
+  .bar{height:5px;background:var(--panel-2);border-radius:99px;overflow:hidden;margin-top:3px}
+  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .12s linear}
+  .bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+
+  .field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-bottom:10px}
+  .field input[type=number]{width:76px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;text-align:right}
+  .field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+  .note{font-size:12px;color:var(--muted);line-height:1.55}
+  .note code{background:var(--panel-2);padding:1px 5px;border-radius:5px;font-size:11px}
+
+  #alarm{position:fixed;inset:0;background:#000;z-index:99;display:none;align-items:center;justify-content:center}
+  #alarm.on{display:flex}
+  #alarm video{width:100%;height:100%;object-fit:contain;background:#000}
+  #alarmFallback{text-align:center;padding:40px}
+  #alarmFallback .big{font-size:clamp(38px,9vw,110px);font-weight:800;letter-spacing:-.02em;color:var(--bad)}
+  #alarmFallback .sub{color:var(--muted);margin-top:14px;font-size:17px}
+  #alarmTag{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:100;display:none;
+    background:rgba(255,77,94,.14);border:1px solid rgba(255,77,94,.45);color:#ffd7db;
+    padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600}
+  #alarm.on ~ #alarmTag{display:block}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <span class="dot" id="statusDot"></span>
+    <h1>Focus Guard <span id="statusText">— выключено</span></h1>
+  </header>
+
+  <div class="layout">
+    <div>
+      <div class="stage">
+        <video id="cam" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div class="hint" id="hint">Нажмите «Запустить» — потребуется доступ к камере.<br>Видео никуда не отправляется, всё считается в браузере.</div>
+        <div class="badge" style="display:none" id="badge"><span class="dot" id="badgeDot"></span><span id="badgeText">—</span></div>
+        <div class="fps" id="fps" style="display:none">—</div>
+      </div>
+    </div>
+
+    <aside>
+      <div class="panel">
+        <h2>Управление</h2>
+        <button id="startBtn">Запустить слежение</button>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="calibBtn" disabled>Калибровка</button>
+          <button class="ghost" id="stopBtn" disabled>Стоп</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Видео-реакция</h2>
+        <label class="file">
+          Выбрать видеофайл с диска
+          <input type="file" id="videoFile" accept="video/*">
+        </label>
+        <div class="fname" id="fname"></div>
+        <div class="field" style="margin-top:12px;margin-bottom:0">
+          <span>Звук в реакции</span><input type="checkbox" id="sound" checked>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Состояние</h2>
+        <div class="metric"><span>Поворот головы (yaw)</span><b id="mYaw">—</b></div>
+        <div class="metric"><span>Наклон вниз (pitch)</span><b id="mPitch">—</b></div>
+        <div class="metric"><span>Отвлечён</span><b id="mTimer">0.0 с</b></div>
+        <div class="bar"><i id="mBar"></i></div>
+      </div>
+
+      <div class="panel">
+        <h2>Пороги</h2>
+        <div class="field"><span>Задержка до реакции, с</span><input type="number" id="tDelay" value="5" min="1" max="60" step="0.5"></div>
+        <div class="field"><span>Порог поворота</span><input type="number" id="tYaw" value="0.25" min="0.05" max="0.8" step="0.01"></div>
+        <div class="field"><span>Порог наклона вниз</span><input type="number" id="tPitch" value="0.08" min="0.02" max="0.4" step="0.01"></div>
+        <div class="field" style="margin-bottom:0"><span>Реагировать на пропажу лица</span><input type="checkbox" id="tGone" checked></div>
+      </div>
+
+      <div class="panel">
+        <h2>Как запускать</h2>
+        <p class="note">Камера доступна только на <code>localhost</code> или <code>https</code>. Из папки с файлом:<br>
+        <code>python3 -m http.server 8000</code><br>затем откройте <code>http://localhost:8000</code>.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="alarm">
+  <video id="alarmVideo" loop playsinline style="display:none"></video>
+  <div id="alarmFallback">
+    <div class="big">ОТВЛЁКСЯ</div>
+    <div class="sub" id="alarmReason">Видеофайл не выбран</div>
+  </div>
+</div>
+<div id="alarmTag">вернитесь в кадр — видео исчезнет само</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const $ = id => document.getElementById(id);
+  const video = $('cam'), canvas = $('overlay'), ctx = canvas.getContext('2d');
+  const alarmBox = $('alarm'), alarmVideo = $('alarmVideo'), alarmFallback = $('alarmFallback'), alarmReason = $('alarmReason');
+
+  const MODEL_URLS = [
+    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
+    'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
+  ];
+  const FRAME_MS   = 66;    // ~15 fps детекции
+  const RECOVER_MS = 500;   // столько нужно держаться «в норме», чтобы видео скрылось
+  const CALIB_MS   = 1500;  // длительность калибровки
+  const CALIB_MAX_MS = 4000; // сколько ещё ждать лицо, если кадров мало
+
+  let stream = null, running = false, rafTimer = null;
+  let lastOkAt = 0, okSince = 0, alarmOn = false;
+  let smooth = { yaw: null, pitch: null };
+  let base = { yaw: 0, pitch: 0.47 };
+  let calib = null;                       // {until, yaw:[], pitch:[]}
+  let fpsT = performance.now(), fpsN = 0;
+  let reactionURL = null;
+
+  const cfg = () => ({
+    delay:  Math.max(1, parseFloat($('tDelay').value)  || 5) * 1000,
+    yaw:    Math.max(.05, parseFloat($('tYaw').value)   || .25),
+    pitch:  Math.max(.02, parseFloat($('tPitch').value) || .08),
+    gone:   $('tGone').checked
+  });
+
+  /* ---------- геометрия головы по 68 точкам ---------- */
+
+  const mean = pts => pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
+
+  function headPose(pts) {
+    const eyeL = mean(pts.slice(36, 42));
+    const eyeR = mean(pts.slice(42, 48));
+    const roll = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x);   // наклон вбок
+
+    // разворачиваем лицо обратно по roll, чтобы yaw/pitch не «плыли» от наклона головы
+    const c = Math.cos(-roll), s = Math.sin(-roll);
+    const o = mean([eyeL, eyeR]);
+    const R = p => ({ x: (p.x - o.x) * c - (p.y - o.y) * s, y: (p.x - o.x) * s + (p.y - o.y) * c });
+
+    const jawL = R(pts[0]), jawR = R(pts[16]), chin = R(pts[8]);
+    const nose = R(pts[30]), eyes = R(mean([eyeL, eyeR]));
+
+    // yaw: нос смещается к одной из скул при повороте. 0 = анфас, ±1 = профиль
+    const dL = nose.x - jawL.x, dR = jawR.x - nose.x;
+    const yaw = (dL + dR) > 1 ? (dL - dR) / (dL + dR) : 0;
+
+    // pitch: доля «глаза→нос» в высоте «глаза→подбородок».
+    // при взгляде вниз низ лица укорачивается сильнее — доля растёт
+    const h = chin.y - eyes.y;
+    const pitch = Math.abs(h) > 1 ? (nose.y - eyes.y) / h : 0.47;
+
+    return { yaw, pitch, roll };
+  }
+
+  /* ---------- отрисовка контура: только челюсть + брови ---------- */
+
+  function drawOutline(pts, color) {
+    const k = Math.max(1, canvas.width / 640);
+    ctx.lineWidth = 1.4 * k;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 6 * k;
+
+    const poly = (a, b) => {
+      ctx.beginPath();
+      for (let i = a; i <= b; i++) (i === a ? ctx.moveTo : ctx.lineTo).call(ctx, pts[i].x, pts[i].y);
+      ctx.stroke();
+    };
+    poly(0, 16);    // овал: скулы и линия челюсти
+    poly(17, 21);   // левая бровь
+    poly(22, 26);   // правая бровь
+
+    // тонкая линия «лба» между внешними краями бровей — замыкает контур
+    ctx.globalAlpha = .35;
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);  ctx.lineTo(pts[17].x, pts[17].y);
+    ctx.moveTo(pts[26].x, pts[26].y); ctx.lineTo(pts[16].x, pts[16].y);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.shadowBlur = 0;
+    for (let i = 0; i <= 26; i++) {
+      ctx.beginPath();
+      ctx.arc(pts[i].x, pts[i].y, 1.6 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /* ---------- статусы ---------- */
+
+  function setStatus(kind, text, badge) {
+    $('statusDot').className = 'dot ' + kind;
+    $('statusText').textContent = '— ' + text;
+    if (badge !== undefined) {
+      $('badge').style.display = 'flex';
+      $('badgeDot').className = 'dot ' + kind;
+      $('badgeText').textContent = badge;
+    }
+  }
+
+  /* ---------- реакция ---------- */
+
+  function startAlarm(reason) {
+    alarmOn = true;
+    alarmReason.textContent = reactionURL ? reason : 'Видеофайл не выбран — ' + reason;
+    if (reactionURL) {
+      alarmVideo.style.display = 'block';
+      alarmFallback.style.display = 'none';
+      alarmVideo.muted = !$('sound').checked;
+      alarmVideo.currentTime = 0;
+      alarmVideo.play().catch(() => { alarmVideo.muted = true; alarmVideo.play().catch(() => {}); });
+    } else {
+      alarmVideo.style.display = 'none';
+      alarmFallback.style.display = 'block';
+    }
+    alarmBox.classList.add('on');
+  }
+
+  function stopAlarm() {
+    alarmOn = false;
+    alarmBox.classList.remove('on');
+    alarmVideo.pause();
+    try { alarmVideo.currentTime = 0; } catch (e) {}
+  }
+
+  /* ---------- основной цикл ---------- */
+
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 });
+
+  async function loop() {
+    if (!running) return;
+    const t0 = performance.now();
+
+    if (video.videoWidth && canvas.width !== video.videoWidth) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    }
+
+    let res = null;
+    try {
+      // берём самое крупное лицо = ближайшее к камере: если сзади прошёл человек,
+      // трекер не должен перескакивать на него
+      const dets = await faceapi.detectAllFaces(video, options).withFaceLandmarks();
+      if (dets.length) res = dets.reduce((a, b) => b.detection.box.area > a.detection.box.area ? b : a);
+    } catch (e) { /* кадр пропущен */ }
+
+    const now = performance.now();
+    let ok = false, reason = '', pose = null;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (!res) {
+      smooth.yaw = smooth.pitch = null;
+      ok = !cfg().gone;                    // если реакция на пропажу выключена — не считаем это отвлечением
+      reason = 'лицо не в кадре';
+      $('mYaw').textContent = $('mPitch').textContent = '—';
+    } else {
+      const pts = res.landmarks.positions;
+      pose = headPose(pts);
+
+      // экспоненциальное сглаживание — гасит дрожание лендмарков
+      const a = 0.35;
+      smooth.yaw   = smooth.yaw   === null ? pose.yaw   : smooth.yaw   + a * (pose.yaw   - smooth.yaw);
+      smooth.pitch = smooth.pitch === null ? pose.pitch : smooth.pitch + a * (pose.pitch - smooth.pitch);
+
+      if (calib) { calib.yaw.push(smooth.yaw); calib.pitch.push(smooth.pitch); }
+
+      const c = cfg();
+      const dYaw   = smooth.yaw - base.yaw;
+      const dPitch = smooth.pitch - base.pitch;
+
+      const turned = Math.abs(dYaw) > c.yaw;
+      const down   = dPitch > c.pitch;
+      ok = !turned && !down;
+      reason = turned ? 'голова повёрнута в сторону' : down ? 'взгляд опущен вниз' : '';
+
+      $('mYaw').textContent   = dYaw.toFixed(2)   + (turned ? '  ⚠' : '');
+      $('mPitch').textContent = dPitch.toFixed(2) + (down   ? '  ⚠' : '');
+
+      drawOutline(pts, calib ? '#5b9dff' : ok ? '#3ddc84' : '#ff4d5e');
+    }
+
+    // калибровка завершается по таймеру; на медленной машине ждём минимум 5 замеров,
+    // но не дольше CALIB_MAX_MS — иначе лицо так и не появилось
+    if (calib && now >= calib.until && (calib.yaw.length >= 5 || now >= calib.until + CALIB_MAX_MS)) {
+      const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+      if (calib.yaw.length >= 3) { base.yaw = avg(calib.yaw); base.pitch = avg(calib.pitch); }
+      calib = null;
+      lastOkAt = okSince = now;
+    }
+    if (calib) ok = true;                  // во время калибровки не срабатываем
+
+    // гистерезис: короткие «нормальные» кадры не сбрасывают таймер
+    if (ok) {
+      if (!okSince) okSince = now;
+      if (now - okSince >= RECOVER_MS) {
+        lastOkAt = now;
+        if (alarmOn) stopAlarm();
+      }
+    } else {
+      okSince = 0;
+    }
+
+    const c = cfg();
+    const away = ok && (now - okSince >= RECOVER_MS) ? 0 : now - lastOkAt;
+    if (!alarmOn && away > c.delay) startAlarm(reason || 'отвлечение');
+
+    // индикаторы
+    $('mTimer').textContent = (away / 1000).toFixed(1) + ' с';
+    const p = Math.min(1, away / c.delay);
+    const bar = $('mBar');
+    bar.style.width = (p * 100) + '%';
+    bar.className = alarmOn ? 'bad' : p > .35 ? 'warn' : '';
+
+    if (calib)       setStatus('', 'калибровка…', 'калибровка');
+    else if (alarmOn) setStatus('bad',  'отвлечение: ' + reason, reason);
+    else if (!ok)     setStatus('warn', 'внимание: ' + reason, reason);
+    else              setStatus('ok',   'в фокусе', 'в фокусе');
+
+    if (++fpsN >= 5) {
+      const f = fpsN * 1000 / (now - fpsT);
+      $('fps').textContent = (f < 10 ? f.toFixed(1) : Math.round(f)) + ' fps';
+      fpsT = now; fpsN = 0;
+    }
+
+    rafTimer = setTimeout(loop, Math.max(0, FRAME_MS - (performance.now() - t0)));
+  }
+
+  /* ---------- запуск / остановка ---------- */
+
+  async function loadModels() {
+    let err;
+    for (const url of MODEL_URLS) {
+      try {
+        await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(url);
+        return;
+      } catch (e) { err = e; }
+    }
+    throw err;
+  }
+
+  async function start() {
+    const btn = $('startBtn');
+    btn.disabled = true;
+    try {
+      $('hint').textContent = 'Загрузка моделей распознавания…';
+      await loadModels();
+
+      $('hint').textContent = 'Запрашиваем камеру…';
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      $('hint').style.display = 'none';
+      $('fps').style.display = 'block';
+      $('stopBtn').disabled = false;
+      $('calibBtn').disabled = false;
+      btn.textContent = 'Слежение активно';
+
+      running = true;
+      lastOkAt = okSince = performance.now();
+      startCalibration();
+      loop();
+    } catch (e) {
+      console.error(e);
+      $('hint').style.display = 'flex';
+      $('hint').innerHTML = 'Не удалось запустить: ' + (e && e.message ? e.message : e) +
+        '<br><br>Проверьте доступ к камере и что страница открыта по http://localhost или https.';
+      btn.disabled = false;
+    }
+  }
+
+  function stop() {
+    running = false;
+    clearTimeout(rafTimer);
+    stopAlarm();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
+    video.srcObject = null;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    $('startBtn').disabled = false;
+    $('startBtn').textContent = 'Запустить слежение';
+    $('stopBtn').disabled = true;
+    $('calibBtn').disabled = true;
+    $('badge').style.display = 'none';
+    $('fps').style.display = 'none';
+    $('hint').style.display = 'flex';
+    $('hint').textContent = 'Слежение остановлено.';
+    setStatus('', 'выключено');
+  }
+
+  function startCalibration() {
+    calib = { until: performance.now() + CALIB_MS, yaw: [], pitch: [] };
+    lastOkAt = okSince = performance.now();
+  }
+
+  /* ---------- выбор видеофайла ---------- */
+
+  $('videoFile').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    if (reactionURL) URL.revokeObjectURL(reactionURL);
+    reactionURL = URL.createObjectURL(f);
+    alarmVideo.src = reactionURL;
+    $('fname').textContent = '✓ ' + f.name;
+
+    // «разблокируем» автоплей со звуком, пока действует жест пользователя
+    const v = alarmVideo, vol = v.volume;
+    v.muted = false; v.volume = 0;
+    v.play().then(() => { v.pause(); v.currentTime = 0; v.volume = vol; })
+            .catch(() => { v.volume = vol; });
+  });
+
+  $('startBtn').addEventListener('click', start);
+  $('stopBtn').addEventListener('click', stop);
+  $('calibBtn').addEventListener('click', startCalibration);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && alarmOn) stopAlarm(); });
+  window.addEventListener('beforeunload', () => { if (stream) stream.getTracks().forEach(t => t.stop()); });
+})();
+</script>
+</body>
+</html>
