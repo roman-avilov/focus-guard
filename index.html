@@ -3,481 +3,1030 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
 <title>Focus Guard</title>
 <style>
   :root{
-    --bg:#0d1014; --panel:#151a21; --panel-2:#1c232c; --line:#28313d;
-    --txt:#e6edf5; --muted:#8b98a8;
-    --ok:#3ddc84; --warn:#ffb020; --bad:#ff4d5e; --accent:#5b9dff;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    --ok:#34e29a; --warn:#ffc247; --bad:#ff4060; --acc:#8aa4ff;
+    --ink:#f4f7fb; --mut:#7d8a9c;
+    --glass:rgba(10,13,18,.58); --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.06);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Inter,sans-serif;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);min-height:100vh}
-  .app{max-width:1180px;margin:0 auto;padding:22px 18px 40px}
-  header{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
-  h1{font-size:19px;margin:0;letter-spacing:.2px}
-  h1 span{color:var(--muted);font-weight:400}
-  .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);box-shadow:0 0 0 4px rgba(255,255,255,.04)}
-  .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
-  .layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px}
-  @media (max-width:900px){.layout{grid-template-columns:1fr}}
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{background:#04060a;color:var(--ink);-webkit-font-smoothing:antialiased}
 
-  .stage{position:relative;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:4/3}
-  .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
-  .stage .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
-    color:var(--muted);font-size:14px;padding:24px;line-height:1.6}
-  .badge{position:absolute;left:12px;top:12px;display:flex;align-items:center;gap:8px;
-    background:rgba(10,13,17,.72);backdrop-filter:blur(6px);border:1px solid var(--line);
-    padding:7px 12px;border-radius:999px;font-size:13px;font-weight:600}
-  .fps{position:absolute;right:12px;top:12px;background:rgba(10,13,17,.72);border:1px solid var(--line);
-    padding:5px 10px;border-radius:999px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #cam,#ov{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  #ov{pointer-events:none}
+  #veil{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .55s ease;
+    background:radial-gradient(1100px 620px at 50% 42%,rgba(4,6,10,.30),rgba(4,6,10,.88));}
+  #veil.on{opacity:1}
 
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
-  .panel h2{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
-  button{font:inherit;font-weight:600;font-size:14px;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;
-    background:var(--accent);color:#08111f;width:100%;transition:filter .15s}
-  button:hover{filter:brightness(1.08)}
-  button.ghost{background:var(--panel-2);color:var(--txt);border:1px solid var(--line)}
-  button:disabled{opacity:.45;cursor:not-allowed;filter:none}
-  .row{display:flex;gap:8px}
-  .file{display:block;border:1px dashed var(--line);border-radius:10px;padding:12px;text-align:center;
-    color:var(--muted);font-size:13px;cursor:pointer;background:var(--panel-2)}
-  .file:hover{border-color:var(--accent);color:var(--txt)}
-  .file input{display:none}
-  .fname{color:var(--ok);font-size:12px;margin-top:8px;word-break:break-all}
+  /* ---------- стартовый экран ---------- */
+  #idle{position:fixed;inset:0;z-index:12;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:0;text-align:center;padding:36px;background:#04060a;
+    transition:opacity .5s ease}
+  #idle.gone{opacity:0;pointer-events:none}
+  #idle::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(620px 420px at 50% 34%,rgba(138,164,255,.13),transparent 70%)}
+  .eye{position:relative;width:74px;height:74px;margin-bottom:30px;display:grid;place-items:center}
+  .eye i{position:absolute;inset:0;border:1px solid rgba(138,164,255,.30);border-radius:50%;
+    animation:ping 3.4s cubic-bezier(.2,.6,.3,1) infinite}
+  .eye i:nth-child(2){animation-delay:1.13s}
+  .eye i:nth-child(3){animation-delay:2.26s}
+  .eye b{width:13px;height:13px;border-radius:50%;background:var(--acc);
+    box-shadow:0 0 26px rgba(138,164,255,.85)}
+  @keyframes ping{0%{transform:scale(.34);opacity:0}22%{opacity:.85}100%{transform:scale(1);opacity:0}}
 
-  .metric{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:5px 0;color:var(--muted)}
-  .metric b{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:600}
-  .bar{height:5px;background:var(--panel-2);border-radius:99px;overflow:hidden;margin-top:3px}
-  .bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .12s linear}
-  .bar i.warn{background:var(--warn)} .bar i.bad{background:var(--bad)}
+  #idle h1{position:relative;font-size:clamp(34px,5.4vw,54px);font-weight:700;letter-spacing:-.042em;
+    line-height:1.04}
+  #idle h1 span{display:block;font-size:13px;font-weight:500;letter-spacing:.30em;
+    text-transform:uppercase;color:var(--mut);margin-top:14px}
+  #idle p{position:relative;color:var(--mut);font-size:15px;line-height:1.7;max-width:400px;margin-top:22px}
+  #idle p b{color:#c9d4e2;font-weight:600}
+  #go{position:relative;margin-top:34px;font:inherit;font-size:15.5px;font-weight:650;border:0;
+    border-radius:999px;padding:15px 44px;background:var(--ink);color:#04060a;cursor:pointer;
+    transition:transform .18s ease,box-shadow .18s ease,opacity .18s}
+  #go:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 18px 44px -14px rgba(244,247,251,.55)}
+  #go:disabled{opacity:.4;cursor:default;transform:none;box-shadow:none}
 
-  .field{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;color:var(--muted);margin-bottom:10px}
-  .field input[type=number]{width:76px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
-    border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;text-align:right}
-  .field input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
-  .note{font-size:12px;color:var(--muted);line-height:1.55}
-  .note code{background:var(--panel-2);padding:1px 5px;border-radius:5px;font-size:11px}
+  /* ---------- верхняя строка ---------- */
+  #bar{position:fixed;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;gap:10px;
+    padding:16px 18px;opacity:0;transition:opacity .4s ease;pointer-events:none}
+  #bar.on{opacity:1}
+  .chip{display:flex;align-items:center;gap:9px;background:var(--glass);backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);border:1px solid var(--line);border-radius:999px;
+    padding:8px 15px;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none;transition:.25s}
+  .dot.ok{background:var(--ok);box-shadow:0 0 0 4px rgba(52,226,154,.14)}
+  .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(255,194,71,.16)}
+  .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(255,64,96,.18);animation:pulse 1.1s infinite}
+  .dot.cal{background:var(--acc);box-shadow:0 0 0 4px rgba(138,164,255,.16);animation:pulse 1.1s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+  #fps{margin-left:auto;font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);
+    background:var(--glass);backdrop-filter:blur(18px);border:1px solid var(--line2);
+    padding:7px 10px;border-radius:999px}
+  #gear{pointer-events:auto;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);
+    background:var(--glass);backdrop-filter:blur(18px);color:var(--ink);cursor:pointer;
+    display:grid;place-items:center;font-size:15px;transition:transform .25s ease,border-color .2s;flex:none}
+  #gear:hover{transform:rotate(45deg);border-color:var(--acc)}
 
-  #alarm{position:fixed;inset:0;background:#000;z-index:99;display:none;align-items:center;justify-content:center}
-  #alarm.on{display:flex}
-  #alarm video{width:100%;height:100%;object-fit:contain;background:#000}
-  #alarmFallback{text-align:center;padding:40px}
-  #alarmFallback .big{font-size:clamp(38px,9vw,110px);font-weight:800;letter-spacing:-.02em;color:var(--bad)}
-  #alarmFallback .sub{color:var(--muted);margin-top:14px;font-size:17px}
-  #alarmTag{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:100;display:none;
-    background:rgba(255,77,94,.14);border:1px solid rgba(255,77,94,.45);color:#ffd7db;
-    padding:8px 18px;border-radius:999px;font-size:13px;font-weight:600}
-  #alarm.on ~ #alarmTag{display:block}
+  #tb{position:fixed;left:0;bottom:0;height:2px;width:0;background:var(--warn);z-index:7;
+    transition:width .1s linear;border-radius:0 2px 2px 0}
+  #tb.hot{background:var(--bad);box-shadow:0 0 20px 1px var(--bad)}
+
+  /* ---------- HUD поверх камеры ---------- */
+  #hud{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .5s ease}
+  #hud.on{opacity:1}
+  .brk{position:absolute;width:26px;height:26px;border:1px solid rgba(255,255,255,.22)}
+  .brk.tl{top:14px;left:14px;border-right:0;border-bottom:0}
+  .brk.tr{top:14px;right:14px;border-left:0;border-bottom:0}
+  .brk.bl{bottom:12px;left:12px;border-right:0;border-top:0}
+  .brk.br{bottom:12px;right:12px;border-left:0;border-top:0}
+
+  #gauges{position:absolute;left:28px;bottom:58px;display:flex;flex-direction:column;gap:7px}
+  .g{display:flex;align-items:center;gap:9px;
+     font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;
+     text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  .gl{width:56px;color:rgba(255,255,255,.5)}
+  .gt{position:relative;width:88px;height:3px;background:rgba(255,255,255,.13);border-radius:2px;
+      overflow:hidden}
+  .gt i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--ok);border-radius:2px;
+        transition:width .1s linear}
+  .gt i.over{background:var(--bad)}
+  .gt u{position:absolute;top:-2px;bottom:-2px;left:66.6%;width:1px;background:rgba(255,255,255,.45)}
+  .gv{width:42px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums}
+  .gv.over{color:var(--bad)}
+
+  #sess{position:absolute;right:28px;bottom:58px;display:flex;align-items:baseline;gap:7px;
+        font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e6ecf4;
+        font-variant-numeric:tabular-nums;text-shadow:0 1px 8px rgba(0,0,0,.9)}
+  #sess em{font-style:normal;font-size:9.5px;letter-spacing:.1em;color:rgba(255,255,255,.42);
+           margin-right:9px;text-transform:uppercase}
+  #sess em:last-child{margin-right:0}
+
+  #tl{position:absolute;left:28px;right:28px;bottom:30px;height:3px;border-radius:2px;
+      background:rgba(255,255,255,.10);overflow:hidden}
+  #tl b{position:absolute;top:0;bottom:0;background:var(--bad);border-radius:2px;
+        box-shadow:0 0 8px rgba(255,64,96,.7)}
+  #phoneBadge{position:absolute;left:50%;top:22px;transform:translateX(-50%);display:none;
+    font:10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.16em;
+    color:#ffd7dd;background:rgba(255,64,96,.16);border:1px solid rgba(255,64,96,.5);
+    padding:7px 13px;border-radius:999px}
+  #phoneBadge.on{display:block}
+
+  /* ---------- панель ---------- */
+  #sheet{position:fixed;top:0;right:0;bottom:0;width:344px;max-width:90vw;z-index:9;
+    background:var(--glass);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+    border-left:1px solid var(--line);padding:24px 22px 30px;overflow-y:auto;
+    transform:translateX(103%);transition:transform .34s cubic-bezier(.32,.72,0,1)}
+  #sheet.on{transform:none}
+  #sheet h2{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mut);
+    font-weight:700;margin:26px 0 12px;padding-top:16px;border-top:1px solid var(--line2)}
+  #sheet h2:first-of-type{margin-top:0;padding-top:0;border-top:0}
+  #close{position:absolute;top:18px;right:18px;background:none;border:0;color:var(--mut);
+    font-size:17px;cursor:pointer;line-height:1;transition:color .18s}
+  #close:hover{color:var(--ink)}
+
+  .pick{display:flex;align-items:center;gap:11px;border:1px dashed var(--line);border-radius:13px;
+    padding:13px 15px;color:var(--mut);font-size:13px;cursor:pointer;transition:.2s}
+  .pick:hover{border-color:var(--acc);color:var(--ink)}
+  .pick.set{border-style:solid;border-color:rgba(52,226,154,.4);color:var(--ok);
+    background:rgba(52,226,154,.05)}
+  .pick input{display:none}
+  .pick span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .sw{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13.5px;
+    padding:9px 0;color:#d6dfea}
+  .sw input{appearance:none;width:40px;height:23px;border-radius:99px;background:rgba(255,255,255,.07);
+    border:1px solid var(--line);position:relative;cursor:pointer;transition:.2s;flex:none}
+  .sw input::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
+    background:var(--mut);transition:.2s cubic-bezier(.32,.72,0,1)}
+  .sw input:checked{background:rgba(138,164,255,.26);border-color:rgba(138,164,255,.6)}
+  .sw input:checked::after{left:19px;background:var(--acc)}
+  .sw.sub{padding-left:15px;font-size:12.5px;color:var(--mut);border-left:1px solid var(--line2);
+    margin:2px 0 6px 3px;padding-top:5px;padding-bottom:5px}
+  .sw.sub input{width:34px;height:20px}
+  .sw.sub input::after{width:14px;height:14px}
+  .sw.sub input:checked::after{left:17px}
+
+  .num{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13.5px;
+    padding:9px 0;color:#d6dfea}
+  .num input{width:74px;text-align:right;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    color:var(--ink);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px}
+  .num input:focus{outline:none;border-color:var(--acc);background:rgba(138,164,255,.07)}
+  input[type=range]{width:100%;accent-color:var(--acc);margin-top:8px}
+  .rng{display:flex;justify-content:space-between;font-size:10.5px;color:var(--mut);margin-top:4px;
+    letter-spacing:.04em}
+
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .st{background:rgba(255,255,255,.045);border:1px solid var(--line2);border-radius:13px;padding:12px 13px}
+  .st b{display:block;font-size:21px;font-weight:700;letter-spacing:-.03em;color:var(--ink);
+    font-variant-numeric:tabular-nums;line-height:1.2}
+  .st span{font-size:9.5px;color:var(--mut);letter-spacing:.11em}
+  .today{font-size:11.5px;color:var(--mut);margin-top:11px;line-height:1.65}
+  .today b{color:#d6dfea;font-weight:600;font-variant-numeric:tabular-nums}
+
+  #live{font:11.5px/1.95 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);
+    background:rgba(255,255,255,.035);border:1px solid var(--line2);border-radius:12px;padding:11px 13px}
+  #live b{color:#d6dfea;font-weight:600}
+  #live .hit{color:var(--bad)}
+  #live i{font-style:normal;opacity:.45}
+
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:24px}
+  .acts button{font:inherit;font-size:13.5px;font-weight:600;border-radius:12px;padding:13px;
+    cursor:pointer;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ink);
+    transition:.2s}
+  .acts button:hover:not(:disabled){border-color:var(--acc);background:rgba(138,164,255,.1)}
+  .acts button:disabled{opacity:.35;cursor:default}
+  .hint{font-size:11.5px;color:var(--mut);line-height:1.7;margin-top:16px}
+
+  /* ---------- обучение ---------- */
+  #wiz{position:fixed;inset:0;z-index:15;display:none;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:40px;
+    background:radial-gradient(760px 520px at 50% 45%,rgba(10,14,22,.90),rgba(4,6,10,.97))}
+  #wiz.on{display:flex}
+  #wiz .step{font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.2em;
+    color:var(--acc);margin-bottom:20px}
+  #wiz h2{font-size:clamp(28px,4.6vw,44px);font-weight:700;letter-spacing:-.035em;margin:0;
+    border:0;padding:0;text-transform:none;color:var(--ink)}
+  #wiz p{color:var(--mut);font-size:15px;line-height:1.65;max-width:400px;margin-top:14px}
+  #wiz .cd{font:700 62px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--ink);
+    margin-top:28px;font-variant-numeric:tabular-nums}
+  #wiz .pr{width:220px;height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:22px;
+    overflow:hidden}
+  #wiz .pr i{display:block;height:100%;width:0;background:var(--acc);transition:width .1s linear}
+  /* пропорции корпуса телефона (iPhone 15 Pro Max — 159.9 x 76.7 мм ≈ 2.08:1) */
+  #frameBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    height:min(56vh,400px);aspect-ratio:1 / 2.08;
+    border:2px dashed rgba(138,164,255,.8);border-radius:min(6vh,42px);display:none;
+    box-shadow:0 0 0 100vmax rgba(4,6,10,.55)}
+  #frameBox.on{display:block}
+  /* когда показана рамка телефона — текст уводим наверх, отсчёт ставим внутрь неё */
+  #wiz.ph{justify-content:flex-start;padding-top:3vh}
+  #wiz.ph .cd{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
+    font-size:min(9vh,64px);color:rgba(244,247,251,.92)}
+  #wiz.ph .pr{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);margin:0}
+  #frameBox::before{content:"";position:absolute;left:50%;top:11px;transform:translateX(-50%);
+    width:31%;height:11px;border-radius:99px;background:rgba(138,164,255,.32)}
+  #frameBox b{position:absolute;left:50%;bottom:-32px;transform:translateX(-50%);white-space:nowrap;
+    font:11px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:var(--acc)}
+  #wiz .res{font:13px/2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);margin-top:22px;
+    background:rgba(255,255,255,.04);border:1px solid var(--line2);border-radius:13px;padding:15px 19px}
+  #wiz .res b{color:var(--ink)}
+  #wiz .res .good{color:var(--ok)} #wiz .res .bad{color:var(--bad)}
+  #wiz button{margin-top:26px;font:inherit;font-size:14.5px;font-weight:650;border:0;border-radius:999px;
+    padding:13px 36px;background:var(--ink);color:#04060a;cursor:pointer}
+  .learn{font-size:11.5px;color:var(--mut);line-height:1.6;margin-top:10px}
+  .learn b{color:var(--ok);font-weight:600}
+  .learn a{color:var(--mut);text-decoration:underline;cursor:pointer}
+
+  /* ---------- реакция ---------- */
+  #boom{position:fixed;inset:0;z-index:20;background:#000;display:none;align-items:center;
+    justify-content:center;animation:in .22s ease}
+  @keyframes in{from{opacity:0}}
+  #boom.on{display:flex}
+  #boom video{width:100%;height:100%;object-fit:contain;background:#000}
+  #slap{text-align:center;padding:30px}
+  #slap .t{font-size:clamp(52px,15vw,168px);font-weight:850;letter-spacing:-.05em;line-height:.88;
+    color:var(--bad);text-shadow:0 0 90px rgba(255,64,96,.42)}
+  #slap .s{margin-top:20px;color:#9fabbb;font-size:clamp(15px,2.5vw,20px);letter-spacing:-.01em}
+  #esc{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:21;display:none;
+    font-size:11.5px;color:#5c6878;letter-spacing:.04em}
+  #boom.on ~ #esc{display:block}
+
+  #sum{color:var(--mut);font-size:14.5px;line-height:1.95;margin-top:22px}
+  #sum b{color:var(--ink);font-weight:650;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
 
-<div class="app">
-  <header>
-    <span class="dot" id="statusDot"></span>
-    <h1>Focus Guard <span id="statusText">— выключено</span></h1>
-  </header>
+<video id="cam" autoplay muted playsinline></video>
+<canvas id="ov"></canvas>
+<div id="veil"></div>
 
-  <div class="layout">
-    <div>
-      <div class="stage">
-        <video id="cam" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-        <div class="hint" id="hint">Нажмите «Запустить» — потребуется доступ к камере.<br>Видео никуда не отправляется, всё считается в браузере.</div>
-        <div class="badge" style="display:none" id="badge"><span class="dot" id="badgeDot"></span><span id="badgeText">—</span></div>
-        <div class="fps" id="fps" style="display:none">—</div>
-      </div>
-    </div>
+<div id="bar">
+  <span class="chip"><span class="dot" id="dot"></span><span id="stat">—</span></span>
+  <span id="fps"></span>
+  <button id="gear" title="Настройки">⚙</button>
+</div>
+<div id="tb"></div>
 
-    <aside>
-      <div class="panel">
-        <h2>Управление</h2>
-        <button id="startBtn">Запустить слежение</button>
-        <div class="row" style="margin-top:8px">
-          <button class="ghost" id="calibBtn" disabled>Калибровка</button>
-          <button class="ghost" id="stopBtn" disabled>Стоп</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Видео-реакция</h2>
-        <label class="file">
-          Выбрать видеофайл с диска
-          <input type="file" id="videoFile" accept="video/*">
-        </label>
-        <div class="fname" id="fname"></div>
-        <div class="field" style="margin-top:12px;margin-bottom:0">
-          <span>Звук в реакции</span><input type="checkbox" id="sound" checked>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Состояние</h2>
-        <div class="metric"><span>Поворот головы (yaw)</span><b id="mYaw">—</b></div>
-        <div class="metric"><span>Наклон вниз (pitch)</span><b id="mPitch">—</b></div>
-        <div class="metric"><span>Отвлечён</span><b id="mTimer">0.0 с</b></div>
-        <div class="bar"><i id="mBar"></i></div>
-      </div>
-
-      <div class="panel">
-        <h2>Пороги</h2>
-        <div class="field"><span>Задержка до реакции, с</span><input type="number" id="tDelay" value="5" min="1" max="60" step="0.5"></div>
-        <div class="field"><span>Порог поворота</span><input type="number" id="tYaw" value="0.25" min="0.05" max="0.8" step="0.01"></div>
-        <div class="field"><span>Порог наклона вниз</span><input type="number" id="tPitch" value="0.08" min="0.02" max="0.4" step="0.01"></div>
-        <div class="field" style="margin-bottom:0"><span>Реагировать на пропажу лица</span><input type="checkbox" id="tGone" checked></div>
-      </div>
-
-      <div class="panel">
-        <h2>Как запускать</h2>
-        <p class="note">Камера доступна только на <code>localhost</code> или <code>https</code>. Из папки с файлом:<br>
-        <code>python3 -m http.server 8000</code><br>затем откройте <code>http://localhost:8000</code>.</p>
-      </div>
-    </aside>
-  </div>
+<div id="hud">
+  <span class="brk tl"></span><span class="brk tr"></span>
+  <span class="brk bl"></span><span class="brk br"></span>
+  <div id="gauges"></div>
+  <div id="headUpNote">ГОЛОВА ПОДНЯТА — «ВНИЗ» НЕ СЧИТАЕТСЯ</div>
+  <div id="sess"><span id="sesTime">0:00</span><em>сессия</em>
+    <span id="sesCnt">0</span><em id="sesCntW">провалов</em>
+    <span id="sesLost">0:00</span><em>мимо</em></div>
+  <div id="tl"></div>
+  <div id="phoneBadge">📱 ТЕЛЕФОН В КАДРЕ</div>
 </div>
 
-<div id="alarm">
-  <video id="alarmVideo" loop playsinline style="display:none"></video>
-  <div id="alarmFallback">
-    <div class="big">ОТВЛЁКСЯ</div>
-    <div class="sub" id="alarmReason">Видеофайл не выбран</div>
-  </div>
+<div id="idle">
+  <div class="eye"><i></i><i></i><i></i><b></b></div>
+  <h1>Focus Guard<span>eye tracking</span></h1>
+  <p>Следит за зрачками. Отвлеклись дольше, чем на <b>пару секунд</b> — включается ваше видео.
+     Всё считается прямо в браузере, картинка с камеры никуда не уходит.</p>
+  <button id="go">Запустить</button>
 </div>
-<div id="alarmTag">вернитесь в кадр — видео исчезнет само</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.js"></script>
-<script>
-(() => {
-  'use strict';
+<aside id="sheet">
+  <button id="close">✕</button>
 
-  const $ = id => document.getElementById(id);
-  const video = $('cam'), canvas = $('overlay'), ctx = canvas.getContext('2d');
-  const alarmBox = $('alarm'), alarmVideo = $('alarmVideo'), alarmFallback = $('alarmFallback'), alarmReason = $('alarmReason');
+  <h2>Реакция</h2>
+  <label class="pick" id="lVid"><span>🎬</span><span id="nVid">Выбрать видеофайл</span>
+    <input type="file" id="fVid" accept="video/*"></label>
 
-  const MODEL_URLS = [
-    'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model',
-    'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
-  ];
-  const FRAME_MS   = 66;    // ~15 fps детекции
-  const RECOVER_MS = 500;   // столько нужно держаться «в норме», чтобы видео скрылось
-  const CALIB_MS   = 1500;  // длительность калибровки
-  const CALIB_MAX_MS = 4000; // сколько ещё ждать лицо, если кадров мало
+  <h2>За чем следить</h2>
+  <div class="sw"><span>Взгляд ушёл в сторону</span><input type="checkbox" id="tSide" checked></div>
+  <div class="sw"><span>Взгляд опущен вниз</span><input type="checkbox" id="tDown" checked></div>
+  <div class="sw sub"><span>только если голова наклонена</span><input type="checkbox" id="tDownHead" checked></div>
+  <div class="sw"><span>Искать телефон в кадре</span><input type="checkbox" id="tCam"></div>
+  <div class="sw sub" style="border:0;padding-top:0"><span id="camState">модель ~6 МБ, грузится при включении</span></div>
+  <div class="sw"><span>Голова отвернулась</span><input type="checkbox" id="tHead" checked></div>
+  <div class="sw"><span>Глаза закрыты</span><input type="checkbox" id="tShut"></div>
+  <div class="sw"><span>Лицо пропало</span><input type="checkbox" id="tGone" checked></div>
+  <div class="sw"><span>Взгляд вниз или в сторону <b style="color:#8aa4ff">+ телефон в кадре</b></span><input type="checkbox" id="tPhEye" checked></div>
+  <div class="sw"><span>Голова повернулась <b style="color:#8aa4ff">+ телефон в кадре</b></span><input type="checkbox" id="tPhHead" checked></div>
+  <div class="num sub" style="padding-bottom:0"><span>Чувствительность этих двух</span><b id="phLvlName" style="color:#d6dfea">обычная</b></div>
+  <input type="range" id="phLvl" min="1" max="7" step="1" value="3">
+  <div class="rng"><span>нужно сильное движение</span><span>ловит малейшее</span></div>
+  <div class="learn" id="phThrInfo"></div>
+  <p class="learn" id="lastFire"></p>
 
-  let stream = null, running = false, rafTimer = null;
-  let lastOkAt = 0, okSince = 0, alarmOn = false;
-  let smooth = { yaw: null, pitch: null };
-  let base = { yaw: 0, pitch: 0.47 };
-  let calib = null;                       // {until, yaw:[], pitch:[]}
-  let fpsT = performance.now(), fpsN = 0;
-  let reactionURL = null;
+  <h2>Эта сессия</h2>
+  <div class="stats">
+    <div class="st"><b id="sCount">0</b><span>ОТВЛЕЧЕНИЙ</span></div>
+    <div class="st"><b id="sLost">0:00</b><span>ПОТЕРЯНО</span></div>
+    <div class="st"><b id="sLong">0:00</b><span>САМОЕ ДОЛГОЕ</span></div>
+    <div class="st"><b id="sWork">0:00</b><span>В ФОКУСЕ</span></div>
+  </div>
+  <div class="today" id="today"></div>
 
-  const cfg = () => ({
-    delay:  Math.max(1, parseFloat($('tDelay').value)  || 5) * 1000,
-    yaw:    Math.max(.05, parseFloat($('tYaw').value)   || .25),
-    pitch:  Math.max(.02, parseFloat($('tPitch').value) || .08),
-    gone:   $('tGone').checked
-  });
+  <h2>Что видит сейчас</h2>
+  <div id="live">запустите слежение</div>
 
-  /* ---------- геометрия головы по 68 точкам ---------- */
+  <h2>Настройка</h2>
+  <div class="num"><span>Терпение, сек</span><input type="number" id="delay" value="5" min="1" max="60" step="0.5"></div>
+  <div class="num" style="padding-bottom:0"><span>Чувствительность</span><b id="sensV">обычная</b></div>
+  <input type="range" id="sens" min="1" max="5" step="1" value="3">
+  <div class="rng"><span>прощает</span><span>придирается</span></div>
 
-  const mean = pts => pts.reduce((a, p) => ({ x: a.x + p.x / pts.length, y: a.y + p.y / pts.length }), { x: 0, y: 0 });
+  <div class="acts">
+    <button id="learn" disabled>Обучить позы</button>
+    <button id="learnPh" disabled>Обучить телефон</button>
+  </div>
+  <div class="acts" style="margin-top:9px">
+    <button id="cal" disabled>Калибровка</button>
+    <button id="stop" disabled>Стоп</button>
+  </div>
+  <p class="learn" id="phInfo"></p>
+  <p class="learn" id="storeWarn" style="display:none;color:#ffc247">
+    ⚠ Браузер не даёт этой странице ничего сохранять, потому что файл открыт напрямую с диска.
+    Настройки и оба обучения будут теряться при каждой перезагрузке.
+    Решение — открывать приложение по адресу сайта, а не файлом.</p>
+  <p class="learn" id="learnInfo"></p>
+  <p class="hint">Цифры выше — насколько вы отклонились от своей нормы и какой порог надо перешагнуть.
+     Взгляд вниз считается отвлечением, только если голова тоже наклонена — тогда печать на клавиатуре
+     не трогает. Снимите галочку, если хотите реагировать на любой взгляд вниз.<br><br>
+     Калибровка запоминает вашу обычную посадку за 1.5 секунды — смотрите в экран как всегда.</p>
+</aside>
 
-  function headPose(pts) {
-    const eyeL = mean(pts.slice(36, 42));
-    const eyeR = mean(pts.slice(42, 48));
-    const roll = Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x);   // наклон вбок
+<div id="wiz">
+  <div class="step" id="wStep">ШАГ 1 / 3</div>
+  <h2 id="wTitle">—</h2>
+  <p id="wText">—</p>
+  <div class="cd" id="wCd">4</div>
+  <div class="pr"><i id="wPr"></i></div>
+  <div class="res" id="wRes" style="display:none"></div>
+  <div id="frameBox"><b>ДЕРЖИТЕ ВЕРТИКАЛЬНО В РАМКЕ</b></div>
+  <button id="wBtn" style="display:none">Готово</button>
+</div>
 
-    // разворачиваем лицо обратно по roll, чтобы yaw/pitch не «плыли» от наклона головы
-    const c = Math.cos(-roll), s = Math.sin(-roll);
-    const o = mean([eyeL, eyeR]);
-    const R = p => ({ x: (p.x - o.x) * c - (p.y - o.y) * s, y: (p.x - o.x) * s + (p.y - o.y) * c });
+<div id="boom">
+  <video id="bVid" loop playsinline style="display:none"></video>
+  <div id="slap"><div class="t">ГЛАЗА</div><div class="s" id="slapSub">не туда</div></div>
+</div>
+<div id="esc">Esc — закрыть</div>
 
-    const jawL = R(pts[0]), jawR = R(pts[16]), chin = R(pts[8]);
-    const nose = R(pts[30]), eyes = R(mean([eyeL, eyeR]));
+<script type="module">
+import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
-    // yaw: нос смещается к одной из скул при повороте. 0 = анфас, ±1 = профиль
-    const dL = nose.x - jawL.x, dR = jawR.x - nose.x;
-    const yaw = (dL + dR) > 1 ? (dL - dR) / (dL + dR) : 0;
+const $ = id => document.getElementById(id);
+const video = $('cam'), cv = $('ov'), ctx = cv.getContext('2d');
 
-    // pitch: доля «глаза→нос» в высоте «глаза→подбородок».
-    // при взгляде вниз низ лица укорачивается сильнее — доля растёт
-    const h = chin.y - eyes.y;
-    const pitch = Math.abs(h) > 1 ? (nose.y - eyes.y) / h : 0.47;
+const WASM  = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
+const MODEL = "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 
-    return { yaw, pitch, roll };
+const RECOVER_MS = 500, CALIB_MS = 1600, CALIB_MAX = 4000;
+// шкала расширена в мягкую сторону: деления 1 и 2 новые, прежние сдвинулись вправо
+const PHK={1:2.6, 2:2.0, 3:1.4, 4:1.0, 5:0.7, 6:0.5, 7:0.35};
+const PHN={1:'совсем мягкая',2:'очень мягкая',3:'мягкая',4:'умеренная',
+           5:'обычная',6:'строгая',7:'злая'};
+const PRESETS = { 1:[.55,.55,.42,.22], 2:[.45,.45,.34,.18], 3:[.34,.36,.26,.14], 4:[.26,.28,.20,.11], 5:[.19,.21,.15,.08] };
+const BLINK = .30;   // насколько глаз должен прикрыться ОТНОСИТЕЛЬНО вашей нормы
+const SHUT  = .45;   // насколько — чтобы считать глаза закрытыми
+const NAMES = ['','очень мягкая','мягкая','обычная','строгая','злая'];
+
+let lm=null, stream=null, running=false, tid=null;
+let lastOkAt=0, okSince=0, boomOn=false;
+let sm={side:null,down:null,head:null,pitch:null,conv:null}, base={side:0,down:0,head:0,pitch:0,shut:0,conv:0};
+let calib=null, fpsN=0, fpsT=0, lastTs=-1, vidURL=null;
+let files=null, sawFace=false, blindFrames=0, onCPU=false, switching=false;
+const small=document.createElement('canvas'), sctx=small.getContext('2d',{willReadFrequently:false});
+let th=[.34,.36,.26,.14];
+let lv={s:0,d:0,h:0,p:0}, liveOn=false;
+// статистика: считаем реальную длительность провала — от начала отвлечения до возвращения
+let ses={start:0,count:0,lost:0,longest:0}, awayFrom=0, statTick=0, events=[], lastFire=null;
+function showLastFire(){
+  $('lastFire').innerHTML = lastFire
+    ? `Последнее срабатывание: <b>${lastFire.r}</b> в ${lastFire.t.toLocaleTimeString('ru-RU').slice(0,5)}`
+    : 'Срабатываний в этой сессии ещё не было.';
+}
+
+const mmss = ms => { const t=Math.max(0,Math.round(ms/1000));
+  return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
+const plural = (n,a,b,c) => { const d=n%100, e=n%10;
+  return n+' '+(d>=11&&d<=14 ? c : e===1 ? a : e>=2&&e<=4 ? b : c); };
+
+const DKEY='focusguard.days';
+const today = () => new Date().toISOString().slice(0,10);
+function addDay(count,lost){ try{
+  const all=JSON.parse(localStorage.getItem(DKEY)||'{}'), k=today();
+  const d=all[k]||{count:0,lost:0};
+  d.count+=count; d.lost+=lost; all[k]=d;
+  localStorage.setItem(DKEY, JSON.stringify(all));
+}catch(e){} }
+function dayStats(){ try{
+  return JSON.parse(localStorage.getItem(DKEY)||'{}')[today()] || {count:0,lost:0};
+}catch(e){ return {count:0,lost:0}; } }
+
+/* ---------- обучение на ваших собственных позах ----------
+   вместо подбора порогов «на глаз» приложение снимает три коротких образца
+   и само находит ту величину, которая у ВАС разделяет клавиатуру и телефон */
+const TKEY='focusguard.train';
+const STEPS=[
+  {k:'work', ms:4000, t:'Сидите как обычно',  x:'Смотрите в экран так, как работаете. Не замирайте, ведите себя обычно.'},
+  {k:'kbd',  ms:6000, t:'Печатайте',          x:'Смотрите на клавиатуру и печатайте что угодно.'},
+  {k:'phone',ms:6000, t:'Смотрите в телефон', x:'Возьмите телефон так, как берёте его обычно, и смотрите в него.'}
+];
+let train=null, learned=null;
+try{ learned=JSON.parse(localStorage.getItem(TKEY)||'null'); }catch(e){}
+
+const qt=(a,p)=>{ const b=[...a].sort((x,y)=>x-y); if(!b.length) return 0;
+  const i=(b.length-1)*p, lo=Math.floor(i), hi=Math.ceil(i);
+  return b[lo]+(b[hi]-b[lo])*(i-lo); };
+
+// подбираем порог перебором: пропустить телефон вдвое хуже, чем разок сработать на клавиатуре
+function cut(k,p){
+  const all=[...k,...p].sort((a,b)=>a-b);
+  let best=null;
+  for(let i=0;i<all.length-1;i++){
+    const t=(all[i]+all[i+1])/2;
+    const fp=k.filter(v=>v>t).length/k.length;    // клавиатуру приняли за телефон
+    const fn=p.filter(v=>v<=t).length/p.length;   // телефон пропустили
+    const cost=fp+2*fn;
+    if(!best||cost<best.cost) best={t,cost,fp,fn};
+  }
+  return best;
+}
+
+function analyse(){
+  const K=train.data.kbd, P=train.data.phone;
+  if(K.length<8 || P.length<8) return {few:true};
+  const axes=[];
+  for(const ax of ['p','d','c']){
+    const k=K.map(v=>v[ax]), p=P.map(v=>v[ax]);
+    if(qt(p,.5) <= qt(k,.5)) continue;            // на телефоне величина должна быть больше
+    const c=cut(k,p);
+    if(c && c.fn<=0.4 && c.fp<=0.35)              // признак берём, только если он реально работает
+      axes.push({ax, thr:c.t, fp:c.fp, fn:c.fn, mk:qt(k,.5), mp:qt(p,.5)});
+  }
+  if(!axes.length) return null;
+  axes.sort((a,b)=>(a.fp+2*a.fn)-(b.fp+2*b.fn));
+  const use=axes.slice(0,2);                       // максимум два признака, объединяем по «или»
+  const fn=use.reduce((m,a)=>Math.min(m,a.fn),1);  // «или» уменьшает пропуски
+  const fp=Math.min(1, use.reduce((sm,a)=>sm+a.fp,0));
+  return {axes:use, fp, fn};
+}
+
+const AXN={p:'наклон головы',d:'взгляд вниз',c:'сведение глаз'};
+function axList(l){ return (l.axes||[{ax:l.ax,thr:l.thr}]).map(a=>`${AXN[a.ax]} > ${a.thr.toFixed(2)}`).join(' или '); }
+function learnInfo(){
+  if(!learned){ $('learnInfo').innerHTML='Пороги стоят усреднённые. Нажмите «Обучить» — приложение подстроится под вас за 16 секунд.'; return; }
+  $('learnInfo').innerHTML=`Обучено: <b>${axList(learned)}</b>. `+
+    (learned.fn!==undefined ? `Ловит ${Math.round((1-learned.fn)*100)}% телефона, ложных ${Math.round(learned.fp*100)}%. ` : '')+
+    `<a id="reset">сбросить</a>`;
+  const r=$('reset'); if(r) r.onclick=()=>{ learned=null; localStorage.removeItem(TKEY); learnInfo(); };
+}
+
+function startTrain(){
+  if(!running) return;
+  train={i:0, until:performance.now()+STEPS[0].ms, data:{work:[],kbd:[],phone:[]}, raw:[]};
+  $('sheet').classList.remove('on'); liveOn=false;
+  $('wRes').style.display='none'; $('wBtn').style.display='none';
+  $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
+  showStep(); $('wiz').classList.add('on');
+}
+function showStep(){
+  const st=STEPS[train.i];
+  $('wStep').textContent=`ШАГ ${train.i+1} / 3`;
+  $('wTitle').textContent=st.t; $('wText').textContent=st.x;
+}
+function finishTrain(){
+  const best=analyse();
+  $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
+  $('wStep').textContent='ГОТОВО'; $('wText').textContent='';
+  if(best && best.few){
+    $('wTitle').textContent='Мало данных';
+    $('wRes').innerHTML='Камера успела снять слишком мало кадров.<br>Проверьте, что лицо в кадре, и повторите обучение.';
+    $('wRes').style.display=''; $('wBtn').style.display=''; train=null; learnInfo(); return;
+  }
+  if(best && best.axes){
+    learned={axes:best.axes, fp:best.fp, fn:best.fn};
+    try{ localStorage.setItem(TKEY, JSON.stringify(learned)); }catch(e){}
+    $('wTitle').textContent='Разделил';
+    $('wRes').innerHTML = best.axes.map(a=>
+        `<b>${AXN[a.ax]}</b>: клавиатура ${a.mk.toFixed(2)} · телефон ${a.mp.toFixed(2)} → порог <b>${a.thr.toFixed(2)}</b>`
+      ).join('<br>') +
+      `<br>ловит <b class="good">${Math.round((1-best.fn)*100)}%</b> телефона, `+
+      `ложных <b>${Math.round(best.fp*100)}%</b>`;
+  } else {
+    learned=null; try{ localStorage.removeItem(TKEY); }catch(e){}
+    $('wTitle').textContent='Не разделяются';
+    $('wRes').innerHTML=`Для камеры ваши клавиатура и телефон выглядят одинаково —<br>`+
+      `ни одна величина их не различает.<br>`+
+      `<b class="bad">Остаётся только время:</b> увеличьте «терпение»,<br>чтобы короткие взгляды вниз не считались.`;
+  }
+  $('wRes').style.display=''; $('wBtn').style.display='';
+  train=null; learnInfo();
+}
+
+/* ---------- поиск самого телефона в кадре ----------
+   если по глазам клавиатуру и телефон не развести, остаётся увидеть предмет напрямую */
+let coco=null, cocoBusy=false, cocoRun=false, cocoTick=0, phoneAt=0, cocoStart=0;
+const loadJS = src => new Promise((ok,no)=>{ const t=document.createElement('script');
+  t.src=src; t.onload=ok; t.onerror=no; document.head.appendChild(t); });
+
+let cocoP=null;
+function loadCoco(){ return cocoP || (cocoP = loadCocoOnce()); }
+async function loadCocoOnce(){
+  if(coco) return;
+  cocoBusy=true; $('camState').textContent='загружаю модель…';
+  try{
+    await loadJS('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
+    await loadJS('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+    coco = await cocoSsd.load({base:'lite_mobilenet_v2'});
+    $('camState').textContent='модель готова — телефон ищется в кадре';
+  }catch(e){
+    $('camState').textContent='не удалось загрузить модель (нет сети?)';
+    $('tCam').checked=false; cocoP=null;
+  }
+  cocoBusy=false;
+}
+const phoneVisible = () => performance.now()-phoneAt < 1600;
+
+/* ---------- обучение на ВАШЕМ телефоне ----------
+   стандартный порог рассчитан на предмет целиком; мы измеряем, с какой уверенностью
+   модель узнаёт именно ваш аппарат целиком и наполовину, и опускаем порог под половину */
+const PKEY='focusguard.phone';
+let phCfg=null, phTrain=null;
+try{ phCfg=JSON.parse(localStorage.getItem(PKEY)||'null'); }catch(e){}
+const phThr = () => phCfg ? phCfg.thr : 0.35;
+
+function phInfo(){
+  $('phInfo').innerHTML = phCfg
+    ? `Телефон изучен: целиком <b>${phCfg.full.toFixed(2)}</b>, наполовину <b>${phCfg.half.toFixed(2)}</b>, `+
+      `порог <b>${phCfg.thr.toFixed(2)}</b>. <a id="phReset">сбросить</a>`
+    : 'Телефон не изучен — используется стандартный порог 0.35, частично видимый аппарат может не опознаться.';
+  const r=$('phReset'); if(r) r.onclick=()=>{ phCfg=null; localStorage.removeItem(PKEY); phInfo(); };
+}
+
+// закрашиваем часть найденного прямоугольника фоном — получаем «телефон виден наполовину»
+function partial(src, box, keep){
+  const c=document.createElement('canvas'); c.width=src.width; c.height=src.height;
+  const x=c.getContext('2d'); x.drawImage(src,0,0);
+  const [bx,by,bw,bh]=box;
+  const sx=Math.max(0,Math.min(src.width-1,Math.round(bx-6)));
+  const sy=Math.max(0,Math.min(src.height-1,Math.round(by+bh/2)));
+  const px=x.getImageData(sx,sy,1,1).data;
+  x.fillStyle=`rgb(${px[0]},${px[1]},${px[2]})`;
+  x.fillRect(bx, by+bh*keep, bw, bh*(1-keep));   // нижнюю часть аппарата прячем
+  return c;
+}
+
+async function startPhoneTrain(){
+  if(!running) return;
+  if(!$('tCam').checked){ $('tCam').checked=true; saveCfg(); }
+  if(!coco){
+    $('wStep').textContent='ОБУЧЕНИЕ ТЕЛЕФОНА'; $('wTitle').textContent='Загружаю модель…';
+    $('wText').textContent='Первый раз это несколько секунд.';
+    $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
+    $('wRes').style.display='none'; $('wBtn').style.display='none';
+    $('wiz').classList.add('on');
+    await loadCoco();
+    $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
+  }
+  if(!coco){ $('wTitle').textContent='Модель не загрузилась'; $('wBtn').style.display=''; return; }
+  phTrain={until:performance.now()+5000, best:null};
+  $('sheet').classList.remove('on'); liveOn=false;
+  $('wRes').style.display='none'; $('wBtn').style.display='none';
+  $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
+  $('wStep').textContent='ОБУЧЕНИЕ ТЕЛЕФОНА';
+  $('wTitle').textContent='Держите телефон в рамке';
+  $('wText').textContent='Поверните его к камере так, как держите обычно. Двигайте немного — пусть рассмотрит.';
+  $('frameBox').classList.add('on'); $('wiz').classList.add('ph');
+  $('wiz').classList.add('on');
+}
+
+async function finishPhoneTrain(){
+  $('frameBox').classList.remove('on'); $('wiz').classList.remove('ph');
+  $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
+  $('wStep').textContent='ГОТОВО';  $('wText').textContent='';
+  const b=phTrain && phTrain.best; phTrain=null;
+  if(!b){
+    $('wTitle').textContent='Не увидел телефон';
+    $('wRes').innerHTML='В рамке не нашлось телефона.<br>Поднесите его ближе к камере, экраном к себе, и повторите.';
+  } else {
+    let half=0, third=0;
+    try{
+      const d1=await coco.detect(partial(b.frame,b.box,0.5), 6, 0.05);
+      const d2=await coco.detect(partial(b.frame,b.box,0.33), 6, 0.05);
+      half =Math.max(0,...d1.filter(o=>o.class==='cell phone').map(o=>o.score));
+      third=Math.max(0,...d2.filter(o=>o.class==='cell phone').map(o=>o.score));
+    }catch(e){}
+    const thr=Math.min(0.45, Math.max(0.10, (half>0.05?half:b.score*0.35)*0.8));
+    phCfg={full:b.score, half, third, thr};
+    try{ localStorage.setItem(PKEY, JSON.stringify(phCfg)); }catch(e){}
+    $('wTitle').textContent='Запомнил';
+    $('wRes').innerHTML=`целиком: <b>${b.score.toFixed(2)}</b><br>`+
+      `наполовину: <b>${half.toFixed(2)}</b><br>треть: <b>${third.toFixed(2)}</b><br>`+
+      `новый порог: <b class="good">${thr.toFixed(2)}</b> вместо 0.35`;
+  }
+  $('wRes').style.display=''; $('wBtn').style.display=''; phInfo();
+}
+
+const GA=[['ВЗГЛЯД↓','d',1],['НАКЛОН','p',3],['ВБОК','s',0],['ПОВОРОТ','h',2]];
+function buildGauges(){
+  $('gauges').innerHTML = GA.map(([n,k])=>
+    `<div class="g"><span class="gl">${n}</span><span class="gt"><i id="gi_${k}"></i><u></u></span>`+
+    `<span class="gv" id="gv_${k}">+0.00</span></div>`).join('');
+}
+function drawGauges(has){
+  $('headUpNote').classList.toggle('on', has && lv.p < -th[3]*0.4);
+  for(const [,k,ti] of GA){
+    const v = has ? lv[k] : 0, t = th[ti];
+    const over = Math.abs(v) > t;
+    const fi=$('gi_'+k), gv=$('gv_'+k);
+    fi.style.width = Math.min(100, Math.abs(v)/(t*1.5)*100) + '%';
+    fi.className = over ? 'over' : '';
+    gv.textContent = (v>=0?'+':'') + v.toFixed(2);
+    gv.className = 'gv' + (over ? ' over' : '');
+  }
+}
+function drawTimeline(){
+  const total = Math.max(1, performance.now()-ses.start);
+  $('tl').innerHTML = events.map(e=>{
+    const l = e.from/total*100, w = Math.max(.5, (e.to-e.from)/total*100);
+    return `<b style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%"></b>`;
+  }).join('');
+}
+function drawHud(){
+  const total = ses.start ? performance.now()-ses.start : 0;
+  $('sesTime').textContent = mmss(total);
+  $('sesCnt').textContent  = ses.count;
+  $('sesCntW').textContent = plural(ses.count,'провал','провала','провалов').split(' ')[1];
+  $('sesLost').textContent = mmss(ses.lost);
+  drawTimeline();
+}
+
+function drawStats(){
+  $('sCount').textContent = ses.count;
+  $('sLost').textContent  = mmss(ses.lost);
+  $('sLong').textContent  = mmss(ses.longest);
+  const total = ses.start ? performance.now()-ses.start : 0;
+  $('sWork').textContent  = mmss(Math.max(0,total-ses.lost));
+  const d=dayStats();
+  $('today').innerHTML = d.count
+    ? `За сегодня всего: <b>${plural(d.count,'отвлечение','отвлечения','отвлечений')}</b>, <b>${mmss(d.lost)}</b> мимо работы.`
+    : 'За сегодня это первая сессия.';
+}
+
+// на file:// браузер часто запрещает хранение — проверяем и честно предупреждаем
+let canStore=false;
+try{ localStorage.setItem('fg.test','1'); localStorage.removeItem('fg.test'); canStore=true; }catch(e){}
+
+const SKEY='focusguard.v1';
+const FLAGS=['tSide','tDown','tDownHead','tHead','tShut','tGone'];
+function saveCfg(){ try{
+  const o={delay:$('delay').value, sens:$('sens').value, phLvl:$('phLvl').value};
+  FLAGS.forEach(i=>o[i]=$(i).checked);
+  localStorage.setItem(SKEY, JSON.stringify(o));
+}catch(e){} }
+function loadCfg(){ try{
+  const o=JSON.parse(localStorage.getItem(SKEY)||'{}');
+  FLAGS.forEach(i=>{ if(i in o) $(i).checked=o[i]; });
+  if(o.delay) $('delay').value=o.delay;
+  if(o.sens)  $('sens').value=o.sens;
+  if(o.phLvl) $('phLvl').value=o.phLvl;
+}catch(e){} }
+
+const setPh = () => {
+  const k=PHK[$('phLvl').value]||1.4;
+  $('phLvlName').textContent = PHN[$('phLvl').value];
+  $('phThrInfo').innerHTML = `Сработает, если при видимом телефоне взгляд уйдёт больше чем на `+
+    `<b>${(th[1]*k).toFixed(2)}</b> вниз, <b>${(th[0]*k).toFixed(2)}</b> вбок `+
+    `или голова повернётся на <b>${(th[2]*k).toFixed(2)}</b>. Эти числа видно в шкалах слева.`;
+};
+const setSens = () => { th = PRESETS[$('sens').value]; $('sensV').textContent = NAMES[$('sens').value]; setPh(); };
+loadCfg(); setSens(); learnInfo(); phInfo(); showLastFire();
+if(!canStore) $('storeWarn').style.display='block';
+$('sens').addEventListener('input', setSens);
+$('phLvl').addEventListener('input', setPh);
+[...FLAGS,'delay','sens','phLvl'].forEach(i=>$(i).addEventListener('change', saveCfg));
+const delayMs = () => Math.max(1, parseFloat($('delay').value) || 5) * 1000;
+
+/* взгляд отдельно от головы: блендшейпы описывают, куда смотрят глаза внутри лица */
+function metrics(res,i){
+  const b={}; for (const c of (res.faceBlendshapes?.[i]?.categories || [])) b[c.categoryName]=c.score;
+  const g=n=>b[n]||0;
+  const side=(g('eyeLookInLeft')+g('eyeLookOutRight'))/2-(g('eyeLookOutLeft')+g('eyeLookInRight'))/2;
+  const down=(g('eyeLookDownLeft')+g('eyeLookDownRight'))/2-(g('eyeLookUpLeft')+g('eyeLookUpRight'))/2;
+  const shut=(g('eyeBlinkLeft')+g('eyeBlinkRight'))/2;
+  // сведение глаз к носу обоими сразу = взгляд на близкий предмет; телефон вдвое ближе клавиатуры
+  const conv=(g('eyeLookInLeft')+g('eyeLookInRight'))/2-(g('eyeLookOutLeft')+g('eyeLookOutRight'))/2;
+  const p=res.faceLandmarks[i];
+  const dL=p[1].x-p[234].x, dR=p[454].x-p[1].x;
+  const head=(dL+dR)>1e-6 ? (dL-dR)/(dL+dR) : 0;
+  // наклон головы: разница глубины между лбом и подбородком.
+  // склонился к телефону — лоб уезжает к камере, число растёт; за клавиатурой голова стоит ровно
+  const dy=p[152].y-p[10].y, dz=p[152].z-p[10].z;
+  const pitch=Math.abs(dy)>1e-6 ? dz/dy : 0;
+  return {side,down,shut,head,pitch,conv};
+}
+
+const LINE=(pts,conn,w)=>{ ctx.lineWidth=w; ctx.beginPath();
+  for(const c of conn){ ctx.moveTo(pts[c.start].x*cv.width,pts[c.start].y*cv.height);
+                        ctx.lineTo(pts[c.end].x*cv.width,pts[c.end].y*cv.height); } ctx.stroke(); };
+
+function draw(pts,color){
+  const k=Math.max(1,cv.width/900);
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineCap='round';
+  ctx.shadowColor=color; ctx.shadowBlur=8*k;
+  ctx.globalAlpha=.22; LINE(pts,FaceLandmarker.FACE_LANDMARKS_FACE_OVAL,1.1*k);
+  ctx.globalAlpha=.5;  LINE(pts,FaceLandmarker.FACE_LANDMARKS_LEFT_EYEBROW,1.2*k);
+                       LINE(pts,FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW,1.2*k);
+  ctx.globalAlpha=1;   LINE(pts,FaceLandmarker.FACE_LANDMARKS_LEFT_EYE,1.7*k);
+                       LINE(pts,FaceLandmarker.FACE_LANDMARKS_RIGHT_EYE,1.7*k);
+  for(const c of [468,473]){                       // радужки — по ним и видно, куда смотрит человек
+    const x=pts[c].x*cv.width, y=pts[c].y*cv.height;
+    const r=Math.hypot((pts[c+1].x-pts[c].x)*cv.width,(pts[c+1].y-pts[c].y)*cv.height)||4*k;
+    ctx.lineWidth=1.8*k; ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.stroke();
+    ctx.globalAlpha=.6; ctx.beginPath(); ctx.arc(x,y,2.1*k,0,6.2832); ctx.fill(); ctx.globalAlpha=1;
+  }
+  ctx.shadowBlur=0;
+}
+
+async function toCPU(){
+  switching=true; onCPU=true;
+  $('stat').textContent='настраиваю движок…';
+  try{
+    lm=await FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:MODEL,delegate:'CPU'},
+      outputFaceBlendshapes:true, runningMode:'VIDEO', numFaces:3});
+    lastTs=-1; recalib();
+  }catch(e){}
+  switching=false;
+}
+
+function boom(reason){
+  boomOn=true; lastFire={r:reason, t:new Date()}; showLastFire(); $('slapSub').textContent=reason;
+  const bv=$('bVid');
+  if(vidURL){ bv.style.display='block'; $('slap').style.display='none';
+    bv.currentTime=0; bv.muted=false;
+    bv.play().catch(()=>{ bv.muted=true; bv.play().catch(()=>{}); });
+  } else { bv.style.display='none'; $('slap').style.display='block'; }
+  $('boom').classList.add('on');
+}
+function calm(){
+  if(boomOn && awayFrom){
+    // весь провал целиком, вместе с «терпением», минус полсекунды на подтверждение возврата
+    const dur=Math.max(0, performance.now()-awayFrom-RECOVER_MS);
+    ses.count++; ses.lost+=dur;
+    if(dur>ses.longest) ses.longest=dur;
+    addDay(1,dur); drawStats();
+    events.push({from:awayFrom-ses.start, to:performance.now()-ses.start});
+    drawHud();
+    awayFrom=0;
+  }
+  boomOn=false; $('boom').classList.remove('on');
+  const bv=$('bVid'); bv.pause(); try{ bv.currentTime=0; }catch(e){}
+}
+
+function loop(){
+  if(!running) return;
+  const t0=performance.now();
+  if(video.videoWidth && cv.width!==video.videoWidth){ cv.width=video.videoWidth; cv.height=video.videoHeight; }
+
+  let res=null;
+  if(video.videoWidth && !switching){
+    // детектим по уменьшенной копии кадра: точки нормализованные, на отрисовку не влияет,
+    // а нагрузка на процессор падает в разы
+    const w=480, h=Math.round(w*video.videoHeight/video.videoWidth);
+    if(small.width!==w){ small.width=w; small.height=h; }
+    sctx.drawImage(video,0,0,w,h);
+    const ts=performance.now();
+    if(ts>lastTs){ lastTs=ts; try{ res=lm.detectForVideo(small,ts); }catch(e){} }
   }
 
-  /* ---------- отрисовка контура: только челюсть + брови ---------- */
+  const now=performance.now();
 
-  function drawOutline(pts, color) {
-    const k = Math.max(1, canvas.width / 640);
-    ctx.lineWidth = 1.4 * k;
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineJoin = ctx.lineCap = 'round';
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 6 * k;
+  // ищем телефон нечасто и в отдельном потоке — на скорость слежения не влияет
+  if(cocoRun && now-cocoStart>3000) cocoRun=false;   // зависший запрос бросаем
 
-    const poly = (a, b) => {
-      ctx.beginPath();
-      for (let i = a; i <= b; i++) (i === a ? ctx.moveTo : ctx.lineTo).call(ctx, pts[i].x, pts[i].y);
-      ctx.stroke();
-    };
-    poly(0, 16);    // овал: скулы и линия челюсти
-    poly(17, 21);   // левая бровь
-    poly(22, 26);   // правая бровь
-
-    // тонкая линия «лба» между внешними краями бровей — замыкает контур
-    ctx.globalAlpha = .35;
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);  ctx.lineTo(pts[17].x, pts[17].y);
-    ctx.moveTo(pts[26].x, pts[26].y); ctx.lineTo(pts[16].x, pts[16].y);
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-
-    ctx.shadowBlur = 0;
-    for (let i = 0; i <= 26; i++) {
-      ctx.beginPath();
-      ctx.arc(pts[i].x, pts[i].y, 1.6 * k, 0, Math.PI * 2);
-      ctx.fill();
+  if(phTrain){
+    const left=phTrain.until-now;
+    $('wCd').textContent=Math.max(0,Math.ceil(left/1000));
+    $('wPr').style.width=Math.min(100,(1-left/5000)*100)+'%';
+    if(!cocoRun && coco && small.width && now-cocoTick>300){
+      cocoTick=now; cocoRun=true; cocoStart=now;
+      const snap=document.createElement('canvas'); snap.width=small.width; snap.height=small.height;
+      snap.getContext('2d').drawImage(small,0,0);
+      coco.detect(snap, 6, 0.15).then(d=>{
+        const ph=d.filter(o=>o.class==='cell phone').sort((a,b)=>b.score-a.score)[0];
+        if(ph && (!phTrain.best || ph.score>phTrain.best.score))
+          phTrain.best={score:ph.score, box:ph.bbox, frame:snap};
+        cocoRun=false;
+      }).catch(()=>{ cocoRun=false; });
     }
+    if(left<=0){ finishPhoneTrain(); }
+  }
+  else if($('tCam').checked && coco && !cocoRun && now-cocoTick>450 && small.width){
+    cocoTick=now; cocoRun=true; cocoStart=now;
+    coco.detect(small, 6, phThr()).then(d=>{
+      if(d.some(o=>o.class==='cell phone')) phoneAt=performance.now();
+      cocoRun=false;
+    }).catch(()=>{ cocoRun=false; });
   }
 
-  /* ---------- статусы ---------- */
+  let ok=false, why='';
+  const face = res && res.faceLandmarks && res.faceLandmarks.length;
 
-  function setStatus(kind, text, badge) {
-    $('statusDot').className = 'dot ' + kind;
-    $('statusText').textContent = '— ' + text;
-    if (badge !== undefined) {
-      $('badge').style.display = 'flex';
-      $('badgeDot').className = 'dot ' + kind;
-      $('badgeText').textContent = badge;
+  // если в кадре несколько лиц (кто-то прошёл сзади, портрет на стене),
+  // держимся за самое крупное = ближайшее к камере, иначе калибровка и слежение разъезжаются
+  let fi = 0;
+  if(face > 1){
+    let best = -1;
+    res.faceLandmarks.forEach((p,i)=>{
+      let x0=1,x1=0,y0=1,y1=0;
+      for(const q of p){ if(q.x<x0)x0=q.x; if(q.x>x1)x1=q.x; if(q.y<y0)y0=q.y; if(q.y>y1)y1=q.y; }
+      const area=(x1-x0)*(y1-y0);
+      if(area>best){ best=area; fi=i; }
+    });
+  }
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  if(!face){
+    sm.side=sm.down=sm.head=sm.pitch=sm.conv=null;
+    ok=!$('tGone').checked; why='вас нет в кадре';
+    // GPU-делегат на части машин не падает, а просто не находит лиц — ловим это и уходим на CPU
+    if(!sawFace && !onCPU && !switching && ++blindFrames>30) toCPU();
+  } else {
+    sawFace=true; blindFrames=0;
+    const m=metrics(res,fi), a=.4;
+    // на моргании модель заодно задирает eyeLookDown (глаз уходит под веко),
+    // поэтому пока глаз прикрыт — метрики взгляда замораживаем на последних честных значениях
+    // во время калибровки базовой линии моргания ещё нет — заморозку не применяем,
+    // иначе у прищуренных глаз калибровка взгляда не соберётся вовсе
+    const blink = !calib && (m.shut - base.shut) > BLINK;
+    if(!blink){
+      sm.side = sm.side===null? m.side : sm.side + a*(m.side-sm.side);
+      sm.down = sm.down===null? m.down : sm.down + a*(m.down-sm.down);
+      sm.conv = sm.conv===null? m.conv : sm.conv + a*(m.conv-sm.conv);
     }
+    sm.head  = sm.head===null?  m.head  : sm.head  + a*(m.head-sm.head);
+    sm.pitch = sm.pitch===null? m.pitch : sm.pitch + a*(m.pitch-sm.pitch);
+    if(calib){ calib.b.push(m.shut); calib.s.push(sm.side); calib.d.push(sm.down);
+               calib.h.push(sm.head); calib.p.push(sm.pitch); calib.c.push(sm.conv); }
+
+    const dS=sm.side-base.side, dD=sm.down-base.down,
+          dH=sm.head-base.head, dP=sm.pitch-base.pitch, dC=sm.conv-base.conv;
+    lv={s:dS,d:dD,h:dH,p:dP,c:dC};
+    // во время обучения копим образцы поз, ничего не срабатывает
+    if(train){
+      const st=STEPS[train.i];
+      if(st.k==='work') train.raw.push({s:sm.side,d:sm.down,h:sm.head,p:sm.pitch,c:sm.conv,b:m.shut});
+      else train.data[st.k].push({s:dS,d:dD,h:dH,p:dP,c:dC});
+    }
+
+    const V={p:dP,d:dD,c:dC};
+    const seen = $('tCam').checked && phoneVisible();
+
+    // прежние пункты — работают сами по себе, как и раньше
+    // голова поднята, а глаза относительно неё «смотрят вниз» — на самом деле человек
+    // смотрит ровно в монитор. Такое сочетание за взгляд вниз не считаем
+    const headUp = dP < -th[3]*0.4;
+
+    const bS=$('tSide').checked && !blink && Math.abs(dS)>th[0];
+    // старый пункт живёт сам по себе и про телефон ничего не знает
+    const phone = learned
+      ? (learned.axes ? learned.axes.some(a=>V[a.ax]>a.thr) : V[learned.ax]>learned.thr)
+      : (dD>th[1] && (!$('tDownHead').checked || dP>th[3]));
+    const bD=$('tDown').checked && !blink && !headUp && phone;
+    const bH=$('tHead').checked && Math.abs(dH)>th[2];
+
+    // два новых пункта: поза сама по себе не считается, нужна ещё и часть телефона в кадре.
+    // пороги мягче обычных — раз аппарат виден, сильно отворачиваться не требуется
+    const k=PHK[$('phLvl').value] || 1.4;
+    const bPE=$('tPhEye').checked  && seen && !blink &&
+              ((dD>th[1]*k && !headUp) || Math.abs(dS)>th[0]*k);
+    const bPH=$('tPhHead').checked && seen && Math.abs(dH)>th[2]*k;
+    const bB=$('tShut').checked && (m.shut-base.shut)>SHUT;
+    ok=!(bS||bD||bH||bB||bPE||bPH);
+    why = (bPE||bPH)?'телефон в руках' : bS?'взгляд ушёл в сторону' : bD?'смотрите вниз' : bH?'голова отвернулась' : bB?'глаза закрыты' : '';
+    draw(res.faceLandmarks[fi], calib?'#7d9bff' : ok?'#39e08a' : '#ff3b5c');
   }
 
-  /* ---------- реакция ---------- */
+  if(phTrain){ ok=true; lastOkAt=okSince=now; }
 
-  function startAlarm(reason) {
-    alarmOn = true;
-    alarmReason.textContent = reactionURL ? reason : 'Видеофайл не выбран — ' + reason;
-    if (reactionURL) {
-      alarmVideo.style.display = 'block';
-      alarmFallback.style.display = 'none';
-      alarmVideo.muted = !$('sound').checked;
-      alarmVideo.currentTime = 0;
-      alarmVideo.play().catch(() => { alarmVideo.muted = true; alarmVideo.play().catch(() => {}); });
-    } else {
-      alarmVideo.style.display = 'none';
-      alarmFallback.style.display = 'block';
-    }
-    alarmBox.classList.add('on');
-  }
-
-  function stopAlarm() {
-    alarmOn = false;
-    alarmBox.classList.remove('on');
-    alarmVideo.pause();
-    try { alarmVideo.currentTime = 0; } catch (e) {}
-  }
-
-  /* ---------- основной цикл ---------- */
-
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.4 });
-
-  async function loop() {
-    if (!running) return;
-    const t0 = performance.now();
-
-    if (video.videoWidth && canvas.width !== video.videoWidth) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-    }
-
-    let res = null;
-    try {
-      // берём самое крупное лицо = ближайшее к камере: если сзади прошёл человек,
-      // трекер не должен перескакивать на него
-      const dets = await faceapi.detectAllFaces(video, options).withFaceLandmarks();
-      if (dets.length) res = dets.reduce((a, b) => b.detection.box.area > a.detection.box.area ? b : a);
-    } catch (e) { /* кадр пропущен */ }
-
-    const now = performance.now();
-    let ok = false, reason = '', pose = null;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (!res) {
-      smooth.yaw = smooth.pitch = null;
-      ok = !cfg().gone;                    // если реакция на пропажу выключена — не считаем это отвлечением
-      reason = 'лицо не в кадре';
-      $('mYaw').textContent = $('mPitch').textContent = '—';
-    } else {
-      const pts = res.landmarks.positions;
-      pose = headPose(pts);
-
-      // экспоненциальное сглаживание — гасит дрожание лендмарков
-      const a = 0.35;
-      smooth.yaw   = smooth.yaw   === null ? pose.yaw   : smooth.yaw   + a * (pose.yaw   - smooth.yaw);
-      smooth.pitch = smooth.pitch === null ? pose.pitch : smooth.pitch + a * (pose.pitch - smooth.pitch);
-
-      if (calib) { calib.yaw.push(smooth.yaw); calib.pitch.push(smooth.pitch); }
-
-      const c = cfg();
-      const dYaw   = smooth.yaw - base.yaw;
-      const dPitch = smooth.pitch - base.pitch;
-
-      const turned = Math.abs(dYaw) > c.yaw;
-      const down   = dPitch > c.pitch;
-      ok = !turned && !down;
-      reason = turned ? 'голова повёрнута в сторону' : down ? 'взгляд опущен вниз' : '';
-
-      $('mYaw').textContent   = dYaw.toFixed(2)   + (turned ? '  ⚠' : '');
-      $('mPitch').textContent = dPitch.toFixed(2) + (down   ? '  ⚠' : '');
-
-      drawOutline(pts, calib ? '#5b9dff' : ok ? '#3ddc84' : '#ff4d5e');
-    }
-
-    // калибровка завершается по таймеру; на медленной машине ждём минимум 5 замеров,
-    // но не дольше CALIB_MAX_MS — иначе лицо так и не появилось
-    if (calib && now >= calib.until && (calib.yaw.length >= 5 || now >= calib.until + CALIB_MAX_MS)) {
-      const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
-      if (calib.yaw.length >= 3) { base.yaw = avg(calib.yaw); base.pitch = avg(calib.pitch); }
-      calib = null;
-      lastOkAt = okSince = now;
-    }
-    if (calib) ok = true;                  // во время калибровки не срабатываем
-
-    // гистерезис: короткие «нормальные» кадры не сбрасывают таймер
-    if (ok) {
-      if (!okSince) okSince = now;
-      if (now - okSince >= RECOVER_MS) {
-        lastOkAt = now;
-        if (alarmOn) stopAlarm();
+  if(train){
+    const st=STEPS[train.i], left=train.until-now;
+    $('wCd').textContent=Math.max(0,Math.ceil(left/1000));
+    $('wPr').style.width=Math.min(100,(1-left/st.ms)*100)+'%';
+    if(left<=0){
+      if(st.k==='work' && train.raw.length>=5){       // первый шаг заодно калибрует
+        const md=x=>{ const b=[...x].sort((u,v)=>u-v), n=b.length;
+                      return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0; };
+        base.side=md(train.raw.map(r=>r.s)); base.down=md(train.raw.map(r=>r.d));
+        base.head=md(train.raw.map(r=>r.h)); base.pitch=md(train.raw.map(r=>r.p));
+        base.conv=md(train.raw.map(r=>r.c)); base.shut=md(train.raw.map(r=>r.b));
       }
-    } else {
-      okSince = 0;
+      if(train.i<STEPS.length-1){ train.i++; train.until=now+STEPS[train.i].ms; showStep(); }
+      else finishTrain();
     }
-
-    const c = cfg();
-    const away = ok && (now - okSince >= RECOVER_MS) ? 0 : now - lastOkAt;
-    if (!alarmOn && away > c.delay) startAlarm(reason || 'отвлечение');
-
-    // индикаторы
-    $('mTimer').textContent = (away / 1000).toFixed(1) + ' с';
-    const p = Math.min(1, away / c.delay);
-    const bar = $('mBar');
-    bar.style.width = (p * 100) + '%';
-    bar.className = alarmOn ? 'bad' : p > .35 ? 'warn' : '';
-
-    if (calib)       setStatus('', 'калибровка…', 'калибровка');
-    else if (alarmOn) setStatus('bad',  'отвлечение: ' + reason, reason);
-    else if (!ok)     setStatus('warn', 'внимание: ' + reason, reason);
-    else              setStatus('ok',   'в фокусе', 'в фокусе');
-
-    if (++fpsN >= 5) {
-      const f = fpsN * 1000 / (now - fpsT);
-      $('fps').textContent = (f < 10 ? f.toFixed(1) : Math.round(f)) + ' fps';
-      fpsT = now; fpsN = 0;
-    }
-
-    rafTimer = setTimeout(loop, Math.max(0, FRAME_MS - (performance.now() - t0)));
+    ok=true; lastOkAt=okSince=now;                     // во время обучения реакция не срабатывает
   }
 
-  /* ---------- запуск / остановка ---------- */
+  if(calib && now>=calib.until && (calib.b.length>=5 || now>=calib.until+CALIB_MAX)){
+    // медиана, а не среднее: моргнули пару раз за полторы секунды — базовую линию это не сдвинет
+    const med=x=>{ const b=[...x].sort((u,v)=>u-v), n=b.length;
+                   return n ? (n%2 ? b[(n-1)/2] : (b[n/2-1]+b[n/2])/2) : 0; };
+    if(calib.b.length>=3) base.shut=med(calib.b);
+    if(calib.s.length>=3){ base.side=med(calib.s); base.down=med(calib.d);
+                           base.head=med(calib.h); base.pitch=med(calib.p); base.conv=med(calib.c); }
+    calib=null; lastOkAt=okSince=now;
+  }
+  if(calib) ok=true;
 
-  async function loadModels() {
-    let err;
-    for (const url of MODEL_URLS) {
-      try {
-        await faceapi.nets.tinyFaceDetector.loadFromUri(url);
-        await faceapi.nets.faceLandmark68Net.loadFromUri(url);
-        return;
-      } catch (e) { err = e; }
-    }
-    throw err;
+  if(ok){ if(!okSince) okSince=now;
+          if(now-okSince>=RECOVER_MS){ lastOkAt=now; if(boomOn) calm(); } }
+  else okSince=0;
+
+  const away=(ok && now-okSince>=RECOVER_MS) ? 0 : now-lastOkAt;
+  const dl=delayMs();
+  if(!boomOn && away>dl){ awayFrom=lastOkAt; boom(why||'отвлеклись'); }
+
+  const p=Math.min(1,away/dl);
+  $('tb').style.width=(p*100)+'%';
+  $('tb').className = boomOn ? 'hot' : '';
+  $('veil').classList.toggle('on', !ok && !calib);
+
+  drawGauges(!!face);
+  $('phoneBadge').classList.toggle('on', $('tCam').checked && phoneVisible());
+  if(now-statTick>1000){ statTick=now; drawHud(); if(liveOn) drawStats(); }
+  if(liveOn){
+    if(face){
+      const row=(n,v,t)=>`${n} <b class="${Math.abs(v)>t?'hit':''}">${v>=0?'+':''}${v.toFixed(2)}</b> <i>/ ${t}</i><br>`;
+      $('live').innerHTML = row('вниз&nbsp;&nbsp;&nbsp;',lv.d,th[1]) + row('наклон&nbsp;',lv.p,th[3])
+                          + (lv.p < -th[3]*0.4 ? '<i>голова поднята — «вниз» не считается</i><br>' : '')
+                          + row('вбок&nbsp;&nbsp;&nbsp;',lv.s,th[0]) + row('поворот',lv.h,th[2]);
+    } else $('live').textContent = 'лица нет в кадре';
   }
 
-  async function start() {
-    const btn = $('startBtn');
-    btn.disabled = true;
-    try {
-      $('hint').textContent = 'Загрузка моделей распознавания…';
-      await loadModels();
+  const kind = calib?'cal' : boomOn?'bad' : !ok?'warn' : 'ok';
+  $('dot').className='dot '+kind;
+  $('stat').textContent = calib?'калибровка…' : ok?'в фокусе' : why;
 
-      $('hint').textContent = 'Запрашиваем камеру…';
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false
-      });
-      video.srcObject = stream;
-      await video.play();
+  if(++fpsN>=8){ $('fps').textContent=Math.round(fpsN*1000/(now-fpsT))+' fps'; fpsT=now; fpsN=0; }
+  tid=setTimeout(loop, Math.max(0,50-(performance.now()-t0)));
+}
 
-      $('hint').style.display = 'none';
-      $('fps').style.display = 'block';
-      $('stopBtn').disabled = false;
-      $('calibBtn').disabled = false;
-      btn.textContent = 'Слежение активно';
+async function start(){
+  const btn=$('go'); btn.disabled=true; btn.textContent='Загружаю модель…';
+  try{
+    files=await FilesetResolver.forVisionTasks(WASM);
+    const mk=d=>FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:MODEL,delegate:d},
+      outputFaceBlendshapes:true, runningMode:'VIDEO', numFaces:3});
+    sawFace=false; blindFrames=0; onCPU=false; switching=false; lastTs=-1;
+    try{ lm=await mk('GPU'); }catch(e){ onCPU=true; lm=await mk('CPU'); }
 
-      running = true;
-      lastOkAt = okSince = performance.now();
-      startCalibration();
-      loop();
-    } catch (e) {
-      console.error(e);
-      $('hint').style.display = 'flex';
-      $('hint').innerHTML = 'Не удалось запустить: ' + (e && e.message ? e.message : e) +
-        '<br><br>Проверьте доступ к камере и что страница открыта по http://localhost или https.';
-      btn.disabled = false;
-    }
+    btn.textContent='Запрашиваю камеру…';
+    stream=await navigator.mediaDevices.getUserMedia({
+      video:{width:{ideal:1280},height:{ideal:720},facingMode:'user'},audio:false});
+    video.srcObject=stream; await video.play();
+
+    $('idle').classList.add('gone'); btn.textContent='Запустить';
+    $('bar').classList.add('on');
+    $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=false;
+    running=true; fpsT=performance.now();
+    ses={start:performance.now(),count:0,lost:0,longest:0}; events=[];
+    buildGauges(); drawStats(); drawHud(); $('hud').classList.add('on');
+    recalib(); loop();
+  }catch(e){
+    btn.disabled=false; btn.textContent='Запустить';
+    document.querySelector('#idle p').textContent =
+      'Не запустилось: ' + (e && e.message ? e.message : e) +
+      ' — нужен доступ к камере и адрес по https или localhost.';
   }
+}
 
-  function stop() {
-    running = false;
-    clearTimeout(rafTimer);
-    stopAlarm();
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = null;
-    video.srcObject = null;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    $('startBtn').disabled = false;
-    $('startBtn').textContent = 'Запустить слежение';
-    $('stopBtn').disabled = true;
-    $('calibBtn').disabled = true;
-    $('badge').style.display = 'none';
-    $('fps').style.display = 'none';
-    $('hint').style.display = 'flex';
-    $('hint').textContent = 'Слежение остановлено.';
-    setStatus('', 'выключено');
+function stopAll(){
+  running=false; clearTimeout(tid); calm();
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream=null; video.srcObject=null;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  $('bar').classList.remove('on'); $('sheet').classList.remove('on'); $('hud').classList.remove('on');
+  $('veil').classList.remove('on'); $('tb').style.width='0';
+  $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=true;
+  if(ses.start){
+    const total=performance.now()-ses.start;
+    document.querySelector('#idle p').innerHTML =
+      `Сессия <b>${mmss(total)}</b>, из них в фокусе <b>${mmss(total-ses.lost)}</b>.<br>` +
+      (ses.count ? `Отвлеклись <b>${plural(ses.count,'раз','раза','раз')}</b>, потеряли <b>${mmss(ses.lost)}</b>, самое долгое — <b>${mmss(ses.longest)}</b>.`
+                 : 'Ни одного отвлечения. Так и надо.');
+    document.querySelector('#idle p').id='sum';
   }
+  $('idle').classList.remove('gone');
+  $('go').disabled=false; $('go').textContent='Запустить';
+}
 
-  function startCalibration() {
-    calib = { until: performance.now() + CALIB_MS, yaw: [], pitch: [] };
-    lastOkAt = okSince = performance.now();
-  }
+function recalib(){ calib={until:performance.now()+CALIB_MS,s:[],d:[],h:[],p:[],b:[],c:[]}; lastOkAt=okSince=performance.now(); }
 
-  /* ---------- выбор видеофайла ---------- */
+$('fVid').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  if(vidURL) URL.revokeObjectURL(vidURL);
+  vidURL=URL.createObjectURL(f); $('bVid').src=vidURL;
+  $('nVid').textContent=f.name; $('lVid').classList.add('set');
+  const v=$('bVid'), vol=v.volume; v.muted=false; v.volume=0;   // разблокируем звук, пока есть жест
+  v.play().then(()=>{ v.pause(); v.currentTime=0; v.volume=vol; }).catch(()=>{ v.volume=vol; });
+});
 
-  $('videoFile').addEventListener('change', e => {
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    if (reactionURL) URL.revokeObjectURL(reactionURL);
-    reactionURL = URL.createObjectURL(f);
-    alarmVideo.src = reactionURL;
-    $('fname').textContent = '✓ ' + f.name;
-
-    // «разблокируем» автоплей со звуком, пока действует жест пользователя
-    const v = alarmVideo, vol = v.volume;
-    v.muted = false; v.volume = 0;
-    v.play().then(() => { v.pause(); v.currentTime = 0; v.volume = vol; })
-            .catch(() => { v.volume = vol; });
-  });
-
-  $('startBtn').addEventListener('click', start);
-  $('stopBtn').addEventListener('click', stop);
-  $('calibBtn').addEventListener('click', startCalibration);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && alarmOn) stopAlarm(); });
-  window.addEventListener('beforeunload', () => { if (stream) stream.getTracks().forEach(t => t.stop()); });
-})();
+$('go').addEventListener('click',start);
+$('stop').addEventListener('click',stopAll);
+$('cal').addEventListener('click',()=>{ recalib(); $('sheet').classList.remove('on'); liveOn=false; });
+$('learn').addEventListener('click', startTrain);
+$('learnPh').addEventListener('click', startPhoneTrain);
+$('tCam').addEventListener('change',e=>{ if(e.target.checked) loadCoco(); else $('camState').textContent='выключено'; });
+if($('tCam').checked) loadCoco();
+$('wBtn').addEventListener('click',()=>{ $('wiz').classList.remove('on'); $('wiz').classList.remove('ph'); $('frameBox').classList.remove('on'); });
+$('gear').addEventListener('click',()=>{ liveOn=$('sheet').classList.toggle('on'); if(liveOn) drawStats(); });
+$('close').addEventListener('click',()=>{ $('sheet').classList.remove('on'); liveOn=false; });
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  if(boomOn) calm(); else $('sheet').classList.remove('on');
+});
+window.addEventListener('beforeunload',()=>{ if(stream) stream.getTracks().forEach(t=>t.stop()); });
 </script>
 </body>
 </html>
