@@ -98,6 +98,10 @@
   .gv{width:42px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums}
   .gv.over{color:var(--bad)}
 
+  #headUpNote{position:absolute;left:28px;bottom:42px;display:none;
+    font:9.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;
+    color:var(--acc);text-shadow:0 1px 6px rgba(0,0,0,.9)}
+  #headUpNote.on{display:block}
   #sess{position:absolute;right:28px;bottom:58px;display:flex;align-items:baseline;gap:7px;
         font:12px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e6ecf4;
         font-variant-numeric:tabular-nums;text-shadow:0 1px 8px rgba(0,0,0,.9)}
@@ -179,6 +183,23 @@
     transition:.2s}
   .acts button:hover:not(:disabled){border-color:var(--acc);background:rgba(138,164,255,.1)}
   .acts button:disabled{opacity:.35;cursor:default}
+  details.more{margin-top:16px}
+  details.more summary{list-style:none;cursor:pointer;display:flex;align-items:center;
+    justify-content:space-between;gap:10px;font-size:13.5px;color:#d6dfea;
+    padding:12px 14px;background:rgba(255,255,255,.05);border:1px solid var(--line);
+    border-radius:12px;transition:.18s;user-select:none}
+  details.more summary::-webkit-details-marker{display:none}
+  details.more summary:hover{border-color:var(--acc);background:rgba(138,164,255,.09)}
+  details.more summary b{font-weight:600}
+  details.more summary i{font-style:normal;font-size:11px;color:var(--mut);margin-left:auto;
+    margin-right:4px}
+  details.more summary::after{content:"›";font-size:17px;line-height:1;color:var(--acc);
+    transform:rotate(90deg);transition:transform .22s cubic-bezier(.32,.72,0,1)}
+  details.more[open] summary::after{transform:rotate(-90deg)}
+  details.more[open] summary{border-radius:12px 12px 0 0;border-bottom-color:transparent}
+  details.more .box{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;
+    padding:4px 14px 10px}
+  .grp{border-left:2px solid rgba(138,164,255,.35);padding-left:12px;margin:12px 0 4px}
   .hint{font-size:11.5px;color:var(--mut);line-height:1.7;margin-top:16px}
 
   /* ---------- обучение ---------- */
@@ -198,12 +219,15 @@
   #wiz .pr i{display:block;height:100%;width:0;background:var(--acc);transition:width .1s linear}
   /* пропорции корпуса телефона (iPhone 15 Pro Max — 159.9 x 76.7 мм ≈ 2.08:1) */
   #frameBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    height:min(56vh,400px);aspect-ratio:1 / 2.08;
+    height:min(64vh,560px);aspect-ratio:1 / 2.08;
     border:2px dashed rgba(138,164,255,.8);border-radius:min(6vh,42px);display:none;
     box-shadow:0 0 0 100vmax rgba(4,6,10,.55)}
   #frameBox.on{display:block}
   /* когда показана рамка телефона — текст уводим наверх, отсчёт ставим внутрь неё */
-  #wiz.ph{justify-content:flex-start;padding-top:3vh}
+  #wiz.ph{justify-content:flex-start;padding-top:2vh}
+  #wiz.ph h2{font-size:clamp(23px,3.2vw,32px)}
+  #wiz.ph p{max-width:700px;margin-top:9px;font-size:12.5px;line-height:1.45}
+  #wiz.ph .step{margin-bottom:12px}
   #wiz.ph .cd{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
     font-size:min(9vh,64px);color:rgba(244,247,251,.92)}
   #wiz.ph .pr{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);margin:0}
@@ -280,20 +304,30 @@
     <input type="file" id="fVid" accept="video/*"></label>
 
   <h2>За чем следить</h2>
-  <div class="sw"><span>Взгляд ушёл в сторону</span><input type="checkbox" id="tSide" checked></div>
   <div class="sw"><span>Взгляд опущен вниз</span><input type="checkbox" id="tDown" checked></div>
   <div class="sw sub"><span>только если голова наклонена</span><input type="checkbox" id="tDownHead" checked></div>
-  <div class="sw"><span>Искать телефон в кадре</span><input type="checkbox" id="tCam"></div>
-  <div class="sw sub" style="border:0;padding-top:0"><span id="camState">модель ~6 МБ, грузится при включении</span></div>
-  <div class="sw"><span>Голова отвернулась</span><input type="checkbox" id="tHead" checked></div>
-  <div class="sw"><span>Глаза закрыты</span><input type="checkbox" id="tShut"></div>
   <div class="sw"><span>Лицо пропало</span><input type="checkbox" id="tGone" checked></div>
-  <div class="sw"><span>Взгляд вниз или в сторону <b style="color:#8aa4ff">+ телефон в кадре</b></span><input type="checkbox" id="tPhEye" checked></div>
-  <div class="sw"><span>Голова повернулась <b style="color:#8aa4ff">+ телефон в кадре</b></span><input type="checkbox" id="tPhHead" checked></div>
-  <div class="num sub" style="padding-bottom:0"><span>Чувствительность этих двух</span><b id="phLvlName" style="color:#d6dfea">обычная</b></div>
-  <input type="range" id="phLvl" min="1" max="7" step="1" value="3">
-  <div class="rng"><span>нужно сильное движение</span><span>ловит малейшее</span></div>
-  <div class="learn" id="phThrInfo"></div>
+
+  <div class="grp">
+    <div class="sw"><span>Искать телефон в кадре</span><input type="checkbox" id="tCam"></div>
+    <div class="sw sub" style="border:0;padding-top:0"><span id="camState">модель ~6 МБ, грузится при включении</span></div>
+    <div class="sw"><span>Взгляд вниз или в сторону <b style="color:#8aa4ff">+ телефон</b></span><input type="checkbox" id="tPhEye" checked></div>
+    <div class="sw"><span>Голова повернулась <b style="color:#8aa4ff">+ телефон</b></span><input type="checkbox" id="tPhHead" checked></div>
+    <div class="num sub" style="padding-bottom:0"><span>Чувствительность этих двух</span><b id="phLvlName" style="color:#d6dfea">обычная</b></div>
+    <input type="range" id="phLvl" min="1" max="7" step="1" value="3">
+    <div class="rng"><span>нужно сильное движение</span><span>ловит малейшее</span></div>
+    <div class="learn" id="phThrInfo"></div>
+  </div>
+
+  <details class="more">
+    <summary><b>Другие условия</b><i>ещё 3</i></summary>
+    <div class="box">
+      <div class="sw"><span>Взгляд ушёл в сторону</span><input type="checkbox" id="tSide"></div>
+      <div class="sw"><span>Голова отвернулась</span><input type="checkbox" id="tHead"></div>
+      <div class="sw"><span>Глаза закрыты</span><input type="checkbox" id="tShut"></div>
+    </div>
+  </details>
+
   <p class="learn" id="lastFire"></p>
 
   <h2>Эта сессия</h2>
@@ -318,6 +352,10 @@
     <button id="learn" disabled>Обучить позы</button>
     <button id="learnPh" disabled>Обучить телефон</button>
   </div>
+  <div class="acts" style="grid-template-columns:1fr;margin-top:9px">
+    <button id="learnScr" disabled>Измерить границы экрана</button>
+  </div>
+  <p class="learn" id="scrInfo"></p>
   <div class="acts" style="margin-top:9px">
     <button id="cal" disabled>Калибровка</button>
     <button id="stop" disabled>Стоп</button>
@@ -531,6 +569,58 @@ const phoneVisible = () => performance.now()-phoneAt < 1600;
 /* ---------- обучение на ВАШЕМ телефоне ----------
    стандартный порог рассчитан на предмет целиком; мы измеряем, с какой уверенностью
    модель узнаёт именно ваш аппарат целиком и наполовину, и опускаем порог под половину */
+const SCKEY='focusguard.screen';
+let scr=null, scrTrain=null;
+try{ scr=JSON.parse(localStorage.getItem(SCKEY)||'null'); }catch(e){}
+// границы экрана: дальше них взгляд уже не по монитору, а мимо
+const thSide = () => scr ? scr.side : th[0];
+const thDown = () => scr ? scr.down : th[1];
+
+function scrInfo(){
+  $('scrInfo').innerHTML = scr
+    ? `Границы экрана измерены: вбок <b>${scr.side.toFixed(2)}</b>, вниз <b>${scr.down.toFixed(2)}</b>. `+
+      `Взгляд внутри этих значений считается взглядом в монитор. <a id="scrReset">сбросить</a>`
+    : 'Границы экрана не измерены — пороги берутся усреднённые, поэтому взгляд в угол монитора может считаться отвлечением.';
+  const r=$('scrReset'); if(r) r.onclick=()=>{ scr=null; localStorage.removeItem(SCKEY); scrInfo(); };
+}
+
+function startScrTrain(){
+  if(!running) return;
+  scrTrain={until:performance.now()+7000, s:0, d:0, n:0};
+  $('sheet').classList.remove('on'); liveOn=false;
+  $('wRes').style.display='none'; $('wBtn').style.display='none';
+  $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
+  $('wStep').textContent='ГРАНИЦЫ ЭКРАНА';
+  $('wTitle').textContent='Обведите взглядом края монитора';
+  $('wText').textContent='Не двигая головой, посмотрите по очереди во все четыре угла экрана и обратно в центр.';
+  $('wiz').classList.add('on');
+}
+
+function finishScrTrain(){
+  const t=scrTrain; scrTrain=null;
+  $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
+  $('wStep').textContent='ГОТОВО'; $('wText').textContent='';
+  if(!t || t.n<5){
+    $('wTitle').textContent='Мало данных';
+    $('wRes').innerHTML='Лицо почти не попало в кадр. Попробуйте ещё раз.';
+  } else if(t.s<0.15 && t.d<0.15){
+    // взгляд почти не двигался — записать такие границы значит сделать приложение
+    // сверхчувствительным, лучше честно отказаться
+    $('wTitle').textContent='Взгляд почти не двигался';
+    $('wRes').innerHTML=`Замер дал вбок <b>${t.s.toFixed(2)}</b>, вниз <b>${t.d.toFixed(2)}</b> — `+
+      `это меньше обычного дрожания глаз.<br>Пройдитесь взглядом по самым углам экрана, `+
+      `не двигая головой, и повторите. Прежние настройки не тронуты.`;
+  } else {
+    scr={ side: Math.max(0.20, t.s*1.15+0.03), down: Math.max(0.20, t.d*1.15+0.03) };
+    try{ localStorage.setItem(SCKEY, JSON.stringify(scr)); }catch(e){}
+    $('wTitle').textContent='Границы записаны';
+    $('wRes').innerHTML=`край экрана вбок: <b>${t.s.toFixed(2)}</b> → порог <b>${scr.side.toFixed(2)}</b><br>`+
+      `край экрана вниз: <b>${t.d.toFixed(2)}</b> → порог <b>${scr.down.toFixed(2)}</b><br>`+
+      `Взгляд в пределах экрана теперь отвлечением не считается.`;
+  }
+  $('wRes').style.display=''; $('wBtn').style.display=''; scrInfo(); setPh();
+}
+
 const PKEY='focusguard.phone';
 let phCfg=null, phTrain=null;
 try{ phCfg=JSON.parse(localStorage.getItem(PKEY)||'null'); }catch(e){}
@@ -576,7 +666,7 @@ async function startPhoneTrain(){
   $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
   $('wStep').textContent='ОБУЧЕНИЕ ТЕЛЕФОНА';
   $('wTitle').textContent='Держите телефон в рамке';
-  $('wText').textContent='Поверните его к камере так, как держите обычно. Двигайте немного — пусть рассмотрит.';
+  $('wText').textContent='Поднесите ближе к камере, чтобы заполнить рамку.';
   $('frameBox').classList.add('on'); $('wiz').classList.add('ph');
   $('wiz').classList.add('on');
 }
@@ -676,12 +766,17 @@ function loadCfg(){ try{
 const setPh = () => {
   const k=PHK[$('phLvl').value]||1.4;
   $('phLvlName').textContent = PHN[$('phLvl').value];
-  $('phThrInfo').innerHTML = `Сработает, если при видимом телефоне взгляд уйдёт больше чем на `+
-    `<b>${(th[1]*k).toFixed(2)}</b> вниз, <b>${(th[0]*k).toFixed(2)}</b> вбок `+
-    `или голова повернётся на <b>${(th[2]*k).toFixed(2)}</b>. Эти числа видно в шкалах слева.`;
+  $('phThrInfo').innerHTML = scr
+    ? `Границы экрана измерены, поэтому порог считается от края монитора: сейчас `+
+      `<b>×${k.toFixed(1)}</b> от него (${(thSide()*k).toFixed(2)} вбок, ${(thDown()*k).toFixed(2)} вниз). `+
+      `<b>×1</b> — это ровно край экрана, обычно и нужно оно. Больше — надо отвернуться дальше, `+
+      `меньше — сработает ещё в пределах монитора.`
+    : `Сработает, если при видимом телефоне взгляд уйдёт больше чем на `+
+      `<b>${(thDown()*k).toFixed(2)}</b> вниз, <b>${(thSide()*k).toFixed(2)}</b> вбок `+
+      `или голова повернётся на <b>${(th[2]*k).toFixed(2)}</b>. Эти числа видно в шкалах слева.`;
 };
 const setSens = () => { th = PRESETS[$('sens').value]; $('sensV').textContent = NAMES[$('sens').value]; setPh(); };
-loadCfg(); setSens(); learnInfo(); phInfo(); showLastFire();
+loadCfg(); setSens(); learnInfo(); phInfo(); scrInfo(); showLastFire();
 if(!canStore) $('storeWarn').style.display='block';
 $('sens').addEventListener('input', setSens);
 $('phLvl').addEventListener('input', setPh);
@@ -785,6 +880,13 @@ function loop(){
   // ищем телефон нечасто и в отдельном потоке — на скорость слежения не влияет
   if(cocoRun && now-cocoStart>3000) cocoRun=false;   // зависший запрос бросаем
 
+  if(scrTrain){
+    const left=scrTrain.until-now;
+    $('wCd').textContent=Math.max(0,Math.ceil(left/1000));
+    $('wPr').style.width=Math.min(100,(1-left/7000)*100)+'%';
+    if(left<=0) finishScrTrain();
+  }
+
   if(phTrain){
     const left=phTrain.until-now;
     $('wCd').textContent=Math.max(0,Math.ceil(left/1000));
@@ -853,6 +955,10 @@ function loop(){
     const dS=sm.side-base.side, dD=sm.down-base.down,
           dH=sm.head-base.head, dP=sm.pitch-base.pitch, dC=sm.conv-base.conv;
     lv={s:dS,d:dD,h:dH,p:dP,c:dC};
+    // измерение границ экрана: запоминаем самый дальний угол, куда доставал взгляд
+    if(scrTrain && !blink){ scrTrain.n++;
+      scrTrain.s=Math.max(scrTrain.s, Math.abs(dS));
+      scrTrain.d=Math.max(scrTrain.d, dD); }
     // во время обучения копим образцы поз, ничего не срабатывает
     if(train){
       const st=STEPS[train.i];
@@ -868,11 +974,11 @@ function loop(){
     // смотрит ровно в монитор. Такое сочетание за взгляд вниз не считаем
     const headUp = dP < -th[3]*0.4;
 
-    const bS=$('tSide').checked && !blink && Math.abs(dS)>th[0];
+    const bS=$('tSide').checked && !blink && Math.abs(dS)>thSide();
     // старый пункт живёт сам по себе и про телефон ничего не знает
     const phone = learned
       ? (learned.axes ? learned.axes.some(a=>V[a.ax]>a.thr) : V[learned.ax]>learned.thr)
-      : (dD>th[1] && (!$('tDownHead').checked || dP>th[3]));
+      : (dD>thDown() && (!$('tDownHead').checked || dP>th[3]));
     const bD=$('tDown').checked && !blink && !headUp && phone;
     const bH=$('tHead').checked && Math.abs(dH)>th[2];
 
@@ -880,7 +986,7 @@ function loop(){
     // пороги мягче обычных — раз аппарат виден, сильно отворачиваться не требуется
     const k=PHK[$('phLvl').value] || 1.4;
     const bPE=$('tPhEye').checked  && seen && !blink &&
-              ((dD>th[1]*k && !headUp) || Math.abs(dS)>th[0]*k);
+              ((dD>thDown()*k && !headUp) || Math.abs(dS)>thSide()*k);
     const bPH=$('tPhHead').checked && seen && Math.abs(dH)>th[2]*k;
     const bB=$('tShut').checked && (m.shut-base.shut)>SHUT;
     ok=!(bS||bD||bH||bB||bPE||bPH);
@@ -888,7 +994,7 @@ function loop(){
     draw(res.faceLandmarks[fi], calib?'#7d9bff' : ok?'#39e08a' : '#ff3b5c');
   }
 
-  if(phTrain){ ok=true; lastOkAt=okSince=now; }
+  if(phTrain || scrTrain){ ok=true; lastOkAt=okSince=now; }
 
   if(train){
     const st=STEPS[train.i], left=train.until-now;
@@ -968,7 +1074,7 @@ async function start(){
 
     $('idle').classList.add('gone'); btn.textContent='Запустить';
     $('bar').classList.add('on');
-    $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=false;
+    $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=false;
     running=true; fpsT=performance.now();
     ses={start:performance.now(),count:0,lost:0,longest:0}; events=[];
     buildGauges(); drawStats(); drawHud(); $('hud').classList.add('on');
@@ -988,7 +1094,7 @@ function stopAll(){
   ctx.clearRect(0,0,cv.width,cv.height);
   $('bar').classList.remove('on'); $('sheet').classList.remove('on'); $('hud').classList.remove('on');
   $('veil').classList.remove('on'); $('tb').style.width='0';
-  $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=true;
+  $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=true;
   if(ses.start){
     const total=performance.now()-ses.start;
     document.querySelector('#idle p').innerHTML =
@@ -1017,6 +1123,7 @@ $('stop').addEventListener('click',stopAll);
 $('cal').addEventListener('click',()=>{ recalib(); $('sheet').classList.remove('on'); liveOn=false; });
 $('learn').addEventListener('click', startTrain);
 $('learnPh').addEventListener('click', startPhoneTrain);
+$('learnScr').addEventListener('click', startScrTrain);
 $('tCam').addEventListener('change',e=>{ if(e.target.checked) loadCoco(); else $('camState').textContent='выключено'; });
 if($('tCam').checked) loadCoco();
 $('wBtn').addEventListener('click',()=>{ $('wiz').classList.remove('on'); $('wiz').classList.remove('ph'); $('frameBox').classList.remove('on'); });
