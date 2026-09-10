@@ -403,6 +403,64 @@
 
 
 
+  /* ---------- «чем занимаешься» ----------
+     Слежение уже идёт, пока плашка висит: она не стена, а вопрос между делом.
+     Заодно держит взгляд в центре экрана ровно во время калибровки. */
+  #ask{position:fixed;inset:0;z-index:13;display:grid;place-items:center;padding:28px;
+    background:rgba(0,0,0,.72);
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .24s ease,visibility 0s linear .24s}
+  #ask.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .26s ease}
+  .askCard{width:100%;max-width:420px;background:rgba(28,28,30,.96);
+    border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:26px 24px 20px;
+    box-shadow:0 30px 80px -30px rgba(0,0,0,.9);
+    transform:scale(.96);transition:transform .34s var(--ease-out)}
+  #ask.on .askCard{transform:none}
+  .askCard h2{font-size:22px;font-weight:600;letter-spacing:-.024em;color:var(--ink)}
+  .askCard>p{margin-top:7px;font-size:13.5px;line-height:1.5;color:var(--mut);
+    letter-spacing:-.006em}
+  .askList{margin-top:18px;display:flex;flex-direction:column;gap:6px}
+  .askList button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    font:inherit;font-size:14.5px;letter-spacing:-.008em;color:var(--ink);
+    background:rgba(255,255,255,.07);border:1px solid transparent;border-radius:12px;
+    padding:13px 14px;cursor:pointer;transition:background .16s ease,border-color .16s ease}
+  .askList button:hover{background:rgba(255,255,255,.12)}
+  .askList button:active{opacity:.6;transition:opacity var(--press)}
+  .askList button.last{border-color:rgba(10,132,255,.55);background:rgba(10,132,255,.14)}
+  .askList button.last::after{content:"в прошлый раз";margin-left:auto;font-size:11.5px;
+    color:var(--mut)}
+  /* Своё занятие подтверждается кнопкой, а не только Enter: на телефоне
+     клавиши Enter нет, да и без видимой кнопки непонятно, что делать дальше. */
+  .askOther{position:relative;display:flex}
+  .askList input{width:100%;font:inherit;font-size:14.5px;color:var(--ink);
+    background:rgba(255,255,255,.09);border:1px solid var(--acc);border-radius:12px;
+    padding:13px 52px 13px 14px;outline:none}
+  .askOther button{position:absolute;right:6px;top:50%;width:34px;height:34px;
+    transform:translateY(-50%);border:0;border-radius:11px;background:var(--ink);
+    color:#000;display:grid;place-items:center;cursor:pointer;padding:0;
+    transition:opacity .16s ease,transform var(--press)}
+  .askOther button svg{width:17px;height:17px;display:block}
+  .askOther button:disabled{opacity:.28;cursor:default}
+  .askOther button:active:not(:disabled){transform:translateY(-50%) scale(.9)}
+  .askSkip{display:block;margin:16px auto 0;font:inherit;font-size:13.5px;color:var(--mut);
+    background:none;border:0;cursor:pointer;padding:6px 10px;transition:color .16s}
+  .askSkip:hover{color:var(--ink)}
+
+  /* чем занят — видно в шапке, это и есть смысл «назвать вслух» */
+  #task{pointer-events:auto;display:none;align-items:center;max-width:300px;
+    font-size:13.5px;font-weight:510;letter-spacing:-.012em;color:var(--ink);
+    background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
+    -webkit-backdrop-filter:blur(18px) saturate(180%);border:1px solid var(--line);
+    border-radius:999px;padding:8px 14px;cursor:pointer;flex:none;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    transition:background .18s,border-color .18s}
+  #task.on{display:flex}
+  /* обрезаться должно занятие, а не план: время короткое и должно быть видно целиком */
+  #task b{font-weight:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+  #task i{font-style:normal;color:var(--mut);margin-left:7px;flex:none}
+  #task:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
+
   /* ---------- страница статистики ---------- */
   #stats{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
     opacity:0;visibility:hidden;pointer-events:none;
@@ -416,6 +474,30 @@
     transition:background .18s,color .18s}
   #stClose:hover{background:rgba(255,255,255,.16);color:var(--ink)}
   #stClose:active{transform:scale(.88);transition:transform var(--press)}
+
+  /* ---------- цель на день ----------
+     Бюджет потерь, а не «часы в фокусе»: время фокуса по дням не сохраняется,
+     а потери — сохраняются с самого начала, поэтому кольцо работает на всей истории. */
+  .goal{display:flex;align-items:center;gap:22px;margin:20px 0 8px;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);
+    border-radius:16px;padding:20px 22px}
+  .ring{position:relative;width:104px;height:104px;flex:none}
+  .ring svg{width:104px;height:104px;transform:rotate(-90deg);display:block}
+  .ring circle{fill:none;stroke-width:9;stroke-linecap:round}
+  .ring .trk{stroke:rgba(255,255,255,.10)}
+  .ring .val{stroke:var(--ok);
+    transition:stroke-dashoffset .75s var(--ease-out),stroke .3s ease}
+  .ring.over .val{stroke:var(--bad)}
+  .ring b{position:absolute;inset:0;display:grid;place-items:center;
+    font-size:21px;font-weight:590;letter-spacing:-.025em;color:var(--ink);
+    font-variant-numeric:tabular-nums}
+  .goalTxt{min-width:0}
+  .goalTxt h3{font-size:17px;font-weight:590;letter-spacing:-.018em;color:var(--ink);
+    margin-bottom:6px}
+  .goalTxt p{font-size:13.5px;line-height:1.55;color:var(--mut);letter-spacing:-.006em}
+  #gPlan{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.09)}
+  #gPlan:empty{display:none}
+  .goalTxt p b{color:var(--ink);font-weight:530;font-variant-numeric:tabular-nums}
 
   .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 24px}
   .kpi .st b{font-size:27px}
@@ -473,6 +555,8 @@
     #wiz{transform:none!important}
     /* пик приложения без «вваливания»: слово просто проявляется */
     #slap{transform:none!important}
+    .askCard{transform:none!important}
+    .ring .val{transition:stroke .3s ease}
     /* график: столбики просто проявляются, без роста и развёртки */
     .bar>i{transform:scaleY(1)!important;transition-delay:0s!important}
     #phoneBadge:not(.on){transform:translateX(-50%)!important}
@@ -519,6 +603,7 @@
 <div id="bar">
   <span class="chip"><span class="dot" id="dot"></span><span id="stat">—</span></span>
   <button id="pause">Перерыв</button>
+  <button id="task" title="Сменить занятие"></button>
   <span id="fps"></span>
   <button id="gear" title="Настройки" aria-label="Настройки">
     <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -535,8 +620,8 @@
   <div id="gauges"></div>
   <div id="headUpNote">ГОЛОВА ПОДНЯТА — «ВНИЗ» НЕ СЧИТАЕТСЯ</div>
   <div id="sess"><span id="sesTime">0:00</span><em>сессия</em>
-    <span id="sesCnt">0</span><em id="sesCntW">провалов</em>
-    <span id="sesLost">0:00</span><em>мимо</em></div>
+    <span id="sesCnt">0</span><em id="sesCntW">отвлечений</em>
+    <span id="sesLost">0:00</span><em>потеряно</em></div>
   <div id="tl"></div>
   <div id="phoneBadge">Телефон в кадре</div>
 </div>
@@ -577,7 +662,7 @@
   <p class="learn" id="modeInfo"></p>
 
   <h2><i class="ic ic-red"><svg viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M5.5 3.4v9.2l7-4.6z" fill="currentColor"/></svg></i>Реакция</h2>
+    <path d="M5.5 3.4v9.2l7-4.6z" fill="currentColor"/></svg></i>Что будет при отвлечении</h2>
   <div class="card">
     <label class="row pick" id="lVid"><span>Видеофайл</span>
       <span class="rv" id="nVid">Выбрать…</span>
@@ -638,6 +723,7 @@
       <h2>Пороги</h2>
       <div class="card">
         <div class="num"><span>Терпение, сек</span><input type="number" id="delay" value="5" min="1" max="60" step="0.5"></div>
+        <div class="num"><span>Цель: не терять больше, мин/день</span><input type="number" id="goal" value="15" min="1" max="600" step="1"></div>
         <div class="sl">
           <div class="sl-top"><span>Чувствительность</span><b id="sensV">обычная</b></div>
           <input type="range" id="sens" min="1" max="5" step="1" value="3">
@@ -666,7 +752,7 @@
         <button id="learnScr" disabled>Измерить границы экрана</button>
       </div>
       <div class="acts" style="grid-template-columns:1fr;margin-top:8px">
-        <button id="cal" disabled>Калибровка</button>
+        <button id="cal" disabled>Откалибровать</button>
       </div>
       <p class="learn" id="scrInfo"></p>
       <p class="learn" id="phInfo"></p>
@@ -682,7 +768,7 @@
     Решение — открывать приложение по адресу сайта, а не файлом.</p>
 
   <div class="acts" style="grid-template-columns:1fr">
-    <button id="stop" disabled>Стоп</button>
+    <button id="stop" disabled>Остановить</button>
   </div>
 </aside>
 
@@ -697,6 +783,15 @@
   <button id="wBtn" style="display:none">Готово</button>
 </div>
 
+<div id="ask">
+  <div class="askCard">
+    <h2 id="askTitle">Чем сейчас займёшься?</h2>
+    <p id="askSub">Назови одним словом — будет с чем сверяться, когда взгляд поплывёт.</p>
+    <div class="askList" id="askList"></div>
+    <button class="askSkip" id="askSkip">Пропустить</button>
+  </div>
+</div>
+
 <div id="stats">
   <div class="stWrap">
     <div class="stHead"><h1>Статистика</h1><button id="stClose" title="Закрыть">✕</button></div>
@@ -706,6 +801,21 @@
       <button type="button" data-r="1h">Час</button>
       <button type="button" data-r="7d">Неделя</button>
       <button type="button" data-r="30d">Месяц</button>
+    </div>
+
+    <div class="goal">
+      <div class="ring" id="gRing">
+        <svg viewBox="0 0 104 104" aria-hidden="true">
+          <circle class="trk" cx="52" cy="52" r="45"></circle>
+          <circle class="val" id="gArc" cx="52" cy="52" r="45"></circle>
+        </svg>
+        <b id="gPct">0%</b>
+      </div>
+      <div class="goalTxt">
+        <h3 id="gTitle">Цель на сегодня</h3>
+        <p id="gText"></p>
+        <p id="gPlan"></p>
+      </div>
     </div>
 
     <div class="kpi">
@@ -762,7 +872,7 @@ let th=[.34,.36,.26,.14];
 let lv={s:0,d:0,h:0,p:0}, liveOn=false;
 // статистика: считаем реальную длительность провала — от начала отвлечения до возвращения
 let ses={start:0,count:0,lost:0,longest:0,paused:0}, awayFrom=0, statTick=0, events=[], lastFire=null;
-let paused=false, pauseFrom=0;
+let paused=false, pauseFrom=0, satPend=0;
 const pausedMs = () => (ses.paused||0) + (paused ? performance.now()-pauseFrom : 0);
 function setPaused(v){
   if(v===paused || !running) return;
@@ -776,8 +886,8 @@ function setPaused(v){
 }
 function showLastFire(){
   $('lastFire').innerHTML = lastFire
-    ? `Последнее срабатывание: <b>${lastFire.r}</b> в ${lastFire.t.toLocaleTimeString('ru-RU').slice(0,5)}`
-    : 'Срабатываний в этой сессии ещё не было.';
+    ? `Последнее отвлечение: <b>${lastFire.r}</b> в ${lastFire.t.toLocaleTimeString('ru-RU').slice(0,5)}`
+    : 'Отвлечений в этой сессии ещё не было.';
 }
 
 const mmss = ms => { const t=Math.max(0,Math.round(ms/1000));
@@ -793,12 +903,27 @@ function addDay(count,lost){ try{
   d.count+=count; d.lost+=lost; all[k]=d;
   localStorage.setItem(DKEY, JSON.stringify(all));
 }catch(e){} }
+/* План храним текстом, как человек его назвал («1–2 часа»), а не числом:
+   он назвал диапазон, выдумывать из него точные минуты — придуманная точность. */
+function setDayPlan(text){ try{
+  const all=JSON.parse(localStorage.getItem(DKEY)||'{}'), k=today();
+  const d=all[k]||{count:0,lost:0};
+  d.plan=text; all[k]=d;
+  localStorage.setItem(DKEY, JSON.stringify(all));
+}catch(e){} }
+function addDaySat(ms){ try{
+  if(ms<=0) return;
+  const all=JSON.parse(localStorage.getItem(DKEY)||'{}'), k=today();
+  const d=all[k]||{count:0,lost:0};
+  d.sat=(d.sat||0)+ms; all[k]=d;
+  localStorage.setItem(DKEY, JSON.stringify(all));
+}catch(e){} }
 /* Журнал отвлечений с абсолютным временем. Без него короткие диапазоны
    (30 минут / час) показывать не из чего: events живут только в памяти. */
 const LKEY='focusguard.log';
 function addLog(startEpoch,durMs){ try{
   const a=JSON.parse(localStorage.getItem(LKEY)||'[]');
-  a.push({t:Math.round(startEpoch), d:Math.round(durMs)});
+  a.push({t:Math.round(startEpoch), d:Math.round(durMs), k:curTask||undefined, p:curPlan||undefined});
   const cut=Date.now()-40*86400000;
   localStorage.setItem(LKEY, JSON.stringify(a.filter(e=>e.t>=cut).slice(-3000)));
 }catch(e){} }
@@ -1094,7 +1219,7 @@ function drawHud(){
   const total = ses.start ? performance.now()-ses.start : 0;
   $('sesTime').textContent = mmss(total);
   $('sesCnt').textContent  = ses.count;
-  $('sesCntW').textContent = plural(ses.count,'провал','провала','провалов').split(' ')[1];
+  $('sesCntW').textContent = plural(ses.count,'отвлечение','отвлечения','отвлечений').split(' ')[1];
   $('sesLost').textContent = mmss(ses.lost);
   drawTimeline();
 }
@@ -1118,7 +1243,7 @@ try{ localStorage.setItem('fg.test','1'); localStorage.removeItem('fg.test'); ca
 const SKEY='focusguard.v1';
 const FLAGS=['tSide','tDown','tDownHead','tHead','tShut','tGone','tPhEye','tPhHead'];
 function saveCfg(){ try{
-  const o={delay:$('delay').value, sens:$('sens').value, phLvl:$('phLvl').value};
+  const o={delay:$('delay').value, sens:$('sens').value, phLvl:$('phLvl').value, goal:$('goal').value};
   FLAGS.forEach(i=>o[i]=$(i).checked);
   localStorage.setItem(SKEY, JSON.stringify(o));
 }catch(e){} }
@@ -1128,6 +1253,7 @@ function loadCfg(){ try{
   if(o.delay) $('delay').value=o.delay;
   if(o.sens)  $('sens').value=o.sens;
   if(o.phLvl) $('phLvl').value=o.phLvl;
+  if(o.goal)  $('goal').value=o.goal;
 }catch(e){} }
 
 const setPh = () => {
@@ -1186,7 +1312,7 @@ loadCfg(); setSens(); learnInfo(); phInfo(); scrInfo(); showLastFire();
 if(!canStore) $('storeWarn').style.display='block';
 $('sens').addEventListener('input', setSens);
 $('phLvl').addEventListener('input', setPh);
-[...FLAGS,'delay','sens','phLvl'].forEach(i=>$(i).addEventListener('change', saveCfg));
+[...FLAGS,'delay','sens','phLvl','goal'].forEach(i=>$(i).addEventListener('change', saveCfg));
 /* тронул что-то руками — режим сам переключается на «Свой» */
 [...FLAGS,'delay','sens','phLvl'].forEach(i=>$(i).addEventListener('input', markMode));
 markMode();
@@ -1433,6 +1559,10 @@ function loop(){
     if(calib.s.length>=3){ base.side=med(calib.s); base.down=med(calib.d);
                            base.head=med(calib.h); base.pitch=med(calib.p); base.conv=med(calib.c); }
     calib=null; lastOkAt=okSince=now;
+    /* Норма замеряется на чистом экране, пока человек смотрит на запускающееся
+       приложение. Плашку показываем только после — иначе он читает список
+       сверху вниз, опущенный взгляд запоминается как обычный, и трекер сходит с ума. */
+    if(askPending){ askPending=false; curTask=''; curPlan=''; paintTask(); openAsk(); }
   }
   if(calib) ok=true;
 
@@ -1454,7 +1584,12 @@ function loop(){
 
   drawGauges(!!face);
   $('phoneBadge').classList.toggle('on', $('tCam').checked && phoneVisible());
-  if(now-statTick>1000){ statTick=now; drawHud(); if(liveOn) drawStats(); }
+  if(now-statTick>1000){
+    if(statTick && !paused) satPend += now-statTick;
+    statTick=now;
+    if(satPend>30000){ addDaySat(satPend); satPend=0; }
+    drawHud(); if(liveOn) drawStats();
+  }
   if(liveOn){
     if(face){
       const row=(n,v,t)=>`${n} <b class="${Math.abs(v)>t?'hit':''}">${v>=0?'+':''}${v.toFixed(2)}</b> <i>/ ${t}</i><br>`;
@@ -1493,7 +1628,7 @@ async function start(){
     ses={start:performance.now(),count:0,lost:0,longest:0,paused:0}; events=[];
     paused=false; $('pause').textContent='Перерыв'; $('pause').classList.remove('on');
     buildGauges(); drawStats(); drawHud(); $('hud').classList.add('on');
-    recalib(); loop();
+    recalib(); askPending=true; loop();   // плашку покажем, когда замер закончится
   }catch(e){
     btn.disabled=false; btn.textContent='Запустить';
     $('lede').classList.remove('sum');
@@ -1512,9 +1647,11 @@ function stopAll(){
   if(paused){ ses.paused=(ses.paused||0)+(performance.now()-pauseFrom); paused=false;
               $('pause').textContent='Перерыв'; $('pause').classList.remove('on'); }
   running=false; clearTimeout(tid); calm();
+  if(satPend>0){ addDaySat(satPend); satPend=0; }
   if(stream) stream.getTracks().forEach(t=>t.stop());
   stream=null; video.srcObject=null;
   ctx.clearRect(0,0,cv.width,cv.height);
+  closeAsk(); curTask=''; curPlan=''; $('task').classList.remove('on');
   $('bar').classList.remove('on'); closeSheet(); $('hud').classList.remove('on');
   $('veil').classList.remove('on'); $('tb').style.width='0';
   $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=true;
@@ -1683,7 +1820,7 @@ function statsBuckets(key){
     const all=(()=>{ try{ return JSON.parse(localStorage.getItem(DKEY)||'{}'); }catch(e){ return {}; } })();
     for(let i=R.days-1;i>=0;i--){
       const d=new Date(now-i*86400000), k=dayKey(d), rec=all[k]||{count:0,lost:0};
-      out.push({v:rec.lost||0, n:rec.count||0,
+      out.push({v:rec.lost||0, n:rec.count||0, plan:rec.plan||'',
                 label:R.days<=7 ? ['вс','пн','вт','ср','чт','пт','сб'][d.getDay()]
                                 : (d.getDate()%5===0 ? String(d.getDate()) : ''),
                 full:d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})});
@@ -1700,6 +1837,28 @@ function statsBuckets(key){
     }
   }
   return out;
+}
+
+/* Цель — бюджет потерь на день. Считается из dayStats(), то есть работает
+   на всей накопленной истории, а не с момента добавления. */
+const goalMs = () => Math.max(1, parseFloat($('goal').value) || 15) * 60000;
+function drawGoal(){
+  const spent=dayStats().lost||0, budget=goalMs();
+  const frac=Math.min(1, spent/budget), over=spent>budget;
+  const R=45, C=2*Math.PI*R;
+  const arc=$('gArc');
+  arc.style.strokeDasharray=C.toFixed(1);
+  arc.style.strokeDashoffset=(C*(1-frac)).toFixed(1);
+  $('gRing').classList.toggle('over', over);
+  $('gPct').textContent=Math.round(spent/budget*100)+'%';
+  $('gTitle').textContent = over ? 'Бюджет на сегодня исчерпан' : 'Цель на сегодня';
+  const day=dayStats();
+  $('gPlan').innerHTML = day.plan
+    ? `Планировал <b>${day.plan}</b>, просидел <b>${durText(day.sat||0)}</b>.`
+    : (day.sat ? `Просидел сегодня <b>${durText(day.sat)}</b>.` : '');
+  $('gText').innerHTML = over
+    ? `Потеряно <b>${durText(spent)}</b> при бюджете <b>${durText(budget)}</b> — перебор на <b>${durText(spent-budget)}</b>.`
+    : `Потеряно <b>${durText(spent)}</b> из <b>${durText(budget)}</b>. Осталось <b>${durText(budget-spent)}</b>.`;
 }
 
 function drawChart(){
@@ -1758,7 +1917,7 @@ function markRange(){
 document.querySelectorAll('#stRange button').forEach(x=>
   x.addEventListener('click',()=>{ stRange=x.dataset.r; markRange(); drawChart(); }));
 
-function openStats(){ markRange(); drawChart(); $('stats').classList.add('on'); }
+function openStats(){ markRange(); drawGoal(); drawChart(); $('stats').classList.add('on'); }
 function closeStats(){ $('stats').classList.remove('on'); $('stats').classList.remove('shown'); }
 $('openStats').addEventListener('click',()=>{ closeSheet(); openStats(); });
 $('stClose').addEventListener('click',closeStats);
@@ -1769,19 +1928,109 @@ $('stBars').addEventListener('pointermove',e=>{
   if(!bar){ tip.classList.remove('on'); return; }
   const d=$('stBars')._data?.[+bar.dataset.i]; if(!d){ tip.classList.remove('on'); return; }
   const box=$('stBox').getBoundingClientRect(), r=bar.getBoundingClientRect();
-  tip.innerHTML=`<em>${d.full}</em><b>${durText(d.v)}</b>`;
+  tip.innerHTML=`<em>${d.full}</em><b>${durText(d.v)}</b>`
+    + (d.plan ? `<em style="margin-left:8px;margin-right:0">план: ${d.plan}</em>` : '');
   tip.style.left=(r.left-box.left+r.width/2)+'px';
   tip.style.top=(r.top-box.top-8)+'px';
   tip.classList.add('on');
 });
 $('stBars').addEventListener('pointerleave',()=>$('stTip').classList.remove('on'));
 
+
+/* ---------- «чем занимаешься» ----------
+   Назвать занятие вслух — половина дисциплины. Плашка не блокирует: слежение
+   уже идёт, Esc и клик мимо просто закрывают. Прошлый выбор подсвечен, чтобы
+   постоянному пользователю хватало одного нажатия. */
+const TASKS=['Учусь / готовлюсь к экзамену',
+             'Работаю над проектом / задачей',
+             'Пишу текст / код / дизайн',
+             'Просто посидеть в фокусе'];
+const PLANS=['30 минут и меньше','1–2 часа','2–5 часов','5 часов и больше'];
+const TASKKEY='focusguard.task', PLANKEY='focusguard.plan';
+let curTask='', curPlan='', askPending=false;
+
+function paintTask(){
+  const el=$('task');
+  el.innerHTML='';
+  if(curTask){
+    const b=document.createElement('b'); b.textContent=curTask; el.append(b);
+    if(curPlan){ const i=document.createElement('i'); i.textContent='· '+curPlan; el.append(i); }
+  }
+  el.classList.toggle('on', !!curTask);
+}
+function setTask(v){
+  curTask=(v||'').trim(); paintTask();
+  try{ if(curTask) localStorage.setItem(TASKKEY, curTask); }catch(e){}
+}
+function setPlan(v){
+  curPlan=(v||'').trim(); paintTask();
+  try{ if(curPlan) localStorage.setItem(PLANKEY, curPlan); }catch(e){}
+  if(curPlan) setDayPlan(curPlan);
+}
+function closeAsk(){ $('ask').classList.remove('on'); }
+
+/* Два шага: чем занят и сколько планируешь. Оба пропускаются, оба помнят
+   прошлый выбор — постоянному пользователю это два нажатия, а не анкета. */
+function renderAsk(step){
+  const isTask = step===1;
+  const key    = isTask ? TASKKEY : PLANKEY;
+  const base   = isTask ? TASKS   : PLANS;
+  const apply  = isTask ? setTask : setPlan;
+  $('askTitle').textContent = isTask ? 'Чем сейчас займёшься?' : 'Сколько планируешь?';
+  $('askSub').textContent   = isTask
+    ? 'Назови одним словом — будет с чем сверяться, когда взгляд поплывёт.'
+    : 'Примерно. Это обещание себе, а не таймер.';
+
+  let last=''; try{ last=localStorage.getItem(key)||''; }catch(e){}
+  const list=$('askList'); list.innerHTML='';
+  const next=()=>{ if(isTask) renderAsk(2); else closeAsk(); };
+
+  const opts=[...base];
+  if(last && !opts.includes(last)) opts.unshift(last);
+  opts.forEach(t=>{
+    const b=document.createElement('button');
+    b.type='button'; b.textContent=t; if(t===last) b.className='last';
+    b.addEventListener('click',()=>{ apply(t); next(); });
+    list.appendChild(b);
+  });
+
+  const other=document.createElement('button');
+  other.type='button'; other.textContent='Другое…';
+  other.addEventListener('click',()=>{
+    const box=document.createElement('div'); box.className='askOther';
+    const inp=document.createElement('input');
+    inp.type='text'; inp.maxLength=40; inp.enterKeyHint='done';
+    inp.placeholder = isTask ? 'Чем занимаешься?' : 'Сколько примерно?';
+    const ok=document.createElement('button');
+    ok.type='button'; ok.disabled=true; ok.setAttribute('aria-label','Готово');
+    ok.innerHTML='<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">'+
+      '<path d="M8 13.2V3.4M8 3.4 4.1 7.3M8 3.4l3.9 3.9" stroke="currentColor" '+
+      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const done=()=>{ if(inp.value.trim()){ apply(inp.value); next(); } };
+    inp.addEventListener('input',()=>{ ok.disabled=!inp.value.trim(); });
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter') done();
+      if(e.key==='Escape'){ e.stopPropagation(); closeAsk(); }
+    });
+    ok.addEventListener('click',done);
+    box.append(inp, ok); other.replaceWith(box); inp.focus();
+  });
+  list.appendChild(other);
+}
+function openAsk(){ renderAsk(1); $('ask').classList.add('on'); }
+
+$('askSkip').addEventListener('click',closeAsk);
+$('ask').addEventListener('pointerdown',e=>{ if(e.target===$('ask')) closeAsk(); });
+$('task').addEventListener('click',openAsk);
+
+$('goal').addEventListener('input',()=>{ if($('stats').classList.contains('on')) drawGoal(); });
 $('pause').addEventListener('click',()=>setPaused(!paused));
 $('gear').addEventListener('click',toggleSheet);
 $('close').addEventListener('click',closeSheet);
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(boomOn) calm();
+  if($('ask').classList.contains('on')) closeAsk();
+  else if(boomOn) calm();
   else if($('stats').classList.contains('on')) closeStats();
   else closeSheet();
 });
