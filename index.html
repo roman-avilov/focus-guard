@@ -304,6 +304,9 @@
   .acts button:hover:not(:disabled){background:rgba(10,132,255,.24);border-color:rgba(10,132,255,.5)}
   .acts button:active:not(:disabled){transform:scale(.96);transition:transform var(--press)}
   .acts button:disabled{opacity:.32;cursor:default}
+  .acts button.primary{background:var(--ink);color:#000;border-color:transparent;
+    font-weight:590;padding:15px 10px}
+  .acts button.primary:hover:not(:disabled){background:#fff;border-color:transparent}
   details.more{margin-top:16px}
   details.more summary{list-style:none;cursor:pointer;display:flex;align-items:center;
     justify-content:space-between;gap:10px;font-size:14px;letter-spacing:-.008em;color:#e8e8ed;
@@ -744,6 +747,11 @@
       <circle cx="8" cy="8" r="4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 1.6v2.2M8 12.2v2.2M1.6 8h2.2M12.2 8h2.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
       </svg></i><b>Обучение и калибровка</b><i>4 действия</i></summary>
     <div class="box">
+      <div class="acts" style="grid-template-columns:1fr;margin-top:0">
+        <button id="setupAll" class="primary" disabled>Настроить приложение</button>
+      </div>
+      <p class="learn" id="setupInfo"></p>
+      <h2 style="margin-top:22px">По отдельности</h2>
       <div class="acts" style="margin-top:0">
         <button id="learn" disabled>Обучить позы</button>
         <button id="learnPh" disabled>Обучить телефон</button>
@@ -936,6 +944,20 @@ function dayStats(){ try{
 /* ---------- обучение на ваших собственных позах ----------
    вместо подбора порогов «на глаз» приложение снимает три коротких образца
    и само находит ту величину, которая у ВАС разделяет клавиатуру и телефон */
+const BKEY='focusguard.base', SETKEY='focusguard.setup';
+/* Раньше база жила только в памяти, поэтому каждый запуск начинался с замера.
+   Теперь сохраняем: настроился один раз — дальше приложение стартует молча. */
+function saveBase(){ try{
+  localStorage.setItem(BKEY, JSON.stringify({b:base, at:Date.now()}));
+}catch(e){} }
+function loadBase(){ try{
+  const o=JSON.parse(localStorage.getItem(BKEY)||'null');
+  if(o && o.b){ Object.assign(base, o.b); return o.at||0; }
+}catch(e){}
+  return 0;
+}
+const setupDone = () => { try{ return !!JSON.parse(localStorage.getItem(SETKEY)||'null'); }catch(e){ return false; } };
+
 const TKEY='focusguard.train';
 const STEPS=[
   {k:'work', ms:4000, t:'Сидите как обычно',  x:'Смотрите в экран так, как работаете. Не замирайте, ведите себя обычно.'},
@@ -1005,6 +1027,46 @@ function showStep(){
   $('wStep').textContent=`ШАГ ${train.i+1} / 3`;
   $('wTitle').textContent=st.t; $('wText').textContent=st.x;
 }
+
+/* ---------- одна настройка вместо четырёх ----------
+   Все четыре замера — это одно и то же: «посмотри туда-то N секунд». Поэтому
+   не переписываем логику, а сцепляем существующие мастера друг за другом.
+   Первый шаг обучения поз заодно считает базу, так что отдельной калибровки
+   в цепочке нет — она внутри. */
+let setupSeq=null, setupLog=[];
+
+function seqAdvance(title, ok){
+  if(!setupSeq) return false;              // обычный одиночный запуск
+  if(!ok){ setupSeq=null; return false; }  // замер не удался — показываем как есть
+  setupLog.push({t:title, html:$('wRes').innerHTML});
+  const next=setupSeq.shift();
+  if(next){ setTimeout(next, 500); return true; }
+  setupSeq=null;
+  try{ localStorage.setItem(SETKEY, JSON.stringify({at:Date.now()})); }catch(e){}
+  setupInfo(); showSetupResult();
+  return true;
+}
+function setupInfo(){
+  let at=0; try{ at=(JSON.parse(localStorage.getItem(SETKEY)||'null')||{}).at||0; }catch(e){}
+  $('setupInfo').innerHTML = at
+    ? `Настроено <b>${new Date(at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</b>. `+
+      `Запускается молча — замерять заново не нужно. Пересядешь иначе или сменится свет — пройди ещё раз.`
+    : `Ещё не настроено: пороги усреднённые. Одна тренировка на <b>полминуты</b> — и приложение подстроится под вас.`;
+}
+function showSetupResult(){
+  $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
+  $('wStep').textContent='ГОТОВО'; $('wTitle').textContent='Приложение настроено';
+  $('wText').textContent='Дальше оно будет запускаться молча — замерять заново не нужно.';
+  $('wRes').innerHTML = setupLog.map(x=>`<b class="good">${x.t}</b><br>${x.html}`).join('<br><br>');
+  $('wRes').style.display=''; $('wBtn').style.display='';
+}
+function startSetup(){
+  if(!running) return;
+  setupLog=[];
+  setupSeq=[ startScrTrain, ...($('tCam').checked ? [startPhoneTrain] : []) ];
+  startTrain();          // первый шаг — он же калибровка
+}
+
 function finishTrain(){
   const best=analyse();
   $('wCd').style.display='none'; document.querySelector('#wiz .pr').style.display='none';
@@ -1012,7 +1074,7 @@ function finishTrain(){
   if(best && best.few){
     $('wTitle').textContent='Мало данных';
     $('wRes').innerHTML='Камера успела снять слишком мало кадров.<br>Проверьте, что лицо в кадре, и повторите обучение.';
-    $('wRes').style.display=''; $('wBtn').style.display=''; train=null; learnInfo(); return;
+    setupSeq=null; $('wRes').style.display=''; $('wBtn').style.display=''; train=null; learnInfo(); return;
   }
   if(best && best.axes){
     learned={axes:best.axes, fp:best.fp, fn:best.fn};
@@ -1030,8 +1092,9 @@ function finishTrain(){
       `ни одна величина их не различает.<br>`+
       `<b class="bad">Остаётся только время:</b> увеличьте «терпение»,<br>чтобы короткие взгляды вниз не считались.`;
   }
-  $('wRes').style.display=''; $('wBtn').style.display='';
   train=null; learnInfo();
+  if(seqAdvance('Позы и база', true)) return;
+  $('wRes').style.display=''; $('wBtn').style.display='';
 }
 
 /* ---------- поиск самого телефона в кадре ----------
@@ -1103,14 +1166,19 @@ function finishScrTrain(){
       `это меньше обычного дрожания глаз.<br>Пройдитесь взглядом по самым углам экрана, `+
       `не двигая головой, и повторите. Прежние настройки не тронуты.`;
   } else {
-    scr={ side: Math.max(0.20, t.s*1.15+0.03), down: Math.max(0.20, t.d*1.15+0.03) };
+    /* Запас к измеренному краю: был 15%, стал 8% — «чуть за углом» теперь ловится
+       заметно раньше. Совсем без запаса нельзя: не каждый в тренировке дотягивается
+       взглядом до настоящего угла. */
+    scr={ side: Math.max(0.20, t.s*1.08+0.02), down: Math.max(0.20, t.d*1.08+0.02) };
     try{ localStorage.setItem(SCKEY, JSON.stringify(scr)); }catch(e){}
     $('wTitle').textContent='Границы записаны';
     $('wRes').innerHTML=`край экрана вбок: <b>${t.s.toFixed(2)}</b> → порог <b>${scr.side.toFixed(2)}</b><br>`+
       `край экрана вниз: <b>${t.d.toFixed(2)}</b> → порог <b>${scr.down.toFixed(2)}</b><br>`+
       `Взгляд в пределах экрана теперь отвлечением не считается.`;
   }
-  $('wRes').style.display=''; $('wBtn').style.display=''; scrInfo(); setPh();
+  scrInfo(); setPh();
+  if(seqAdvance('Границы экрана', !!scr)) return;
+  $('wRes').style.display=''; $('wBtn').style.display='';
 }
 
 const PKEY='focusguard.phone';
@@ -1187,7 +1255,9 @@ async function finishPhoneTrain(){
       `наполовину: <b>${half.toFixed(2)}</b><br>треть: <b>${third.toFixed(2)}</b><br>`+
       `новый порог: <b class="good">${thr.toFixed(2)}</b> вместо 0.35`;
   }
-  $('wRes').style.display=''; $('wBtn').style.display=''; phInfo();
+  phInfo();
+  if(seqAdvance('Телефон', !!phCfg)) return;
+  $('wRes').style.display=''; $('wBtn').style.display='';
 }
 
 const GA=[['ВЗГЛЯД↓','d',1],['НАКЛОН','p',3],['ВБОК','s',0],['ПОВОРОТ','h',2]];
@@ -1308,7 +1378,7 @@ document.querySelectorAll('#modes button').forEach(b=>
   b.addEventListener('click',()=>applyMode(b.dataset.m)));
 
 const setSens = () => { th = PRESETS[$('sens').value]; $('sensV').textContent = NAMES[$('sens').value]; setPh(); };
-loadCfg(); setSens(); learnInfo(); phInfo(); scrInfo(); showLastFire();
+loadCfg(); setSens(); setupInfo(); learnInfo(); phInfo(); scrInfo(); showLastFire();
 if(!canStore) $('storeWarn').style.display='block';
 $('sens').addEventListener('input', setSens);
 $('phLvl').addEventListener('input', setPh);
@@ -1544,6 +1614,7 @@ function loop(){
         base.side=md(train.raw.map(r=>r.s)); base.down=md(train.raw.map(r=>r.d));
         base.head=md(train.raw.map(r=>r.h)); base.pitch=md(train.raw.map(r=>r.p));
         base.conv=md(train.raw.map(r=>r.c)); base.shut=md(train.raw.map(r=>r.b));
+        saveBase();
       }
       if(train.i<STEPS.length-1){ train.i++; train.until=now+STEPS[train.i].ms; showStep(); }
       else finishTrain();
@@ -1558,11 +1629,11 @@ function loop(){
     if(calib.b.length>=3) base.shut=med(calib.b);
     if(calib.s.length>=3){ base.side=med(calib.s); base.down=med(calib.d);
                            base.head=med(calib.h); base.pitch=med(calib.p); base.conv=med(calib.c); }
-    calib=null; lastOkAt=okSince=now;
+    calib=null; lastOkAt=okSince=now; saveBase();
     /* Норма замеряется на чистом экране, пока человек смотрит на запускающееся
        приложение. Плашку показываем только после — иначе он читает список
        сверху вниз, опущенный взгляд запоминается как обычный, и трекер сходит с ума. */
-    if(askPending){ askPending=false; curTask=''; curPlan=''; paintTask(); openAsk(); }
+    if(askPending) showAsk();
   }
   if(calib) ok=true;
 
@@ -1623,12 +1694,17 @@ async function start(){
 
     $('idle').classList.add('gone'); btn.textContent='Запустить';
     $('bar').classList.add('on');
-    $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=false;
+    $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=$('setupAll').disabled=false;
     running=true; fpsT=performance.now();
     ses={start:performance.now(),count:0,lost:0,longest:0,paused:0}; events=[];
     paused=false; $('pause').textContent='Перерыв'; $('pause').classList.remove('on');
     buildGauges(); drawStats(); drawHud(); $('hud').classList.add('on');
-    recalib(); askPending=true; loop();   // плашку покажем, когда замер закончится
+    /* Автозамера при старте больше нет: база берётся с диска. Он остаётся только
+       как страховка для того, кто настройку пропустил, — иначе пороги не от чего
+       считать и приложение будет врать. */
+    if(loadBase()){ lastOkAt=okSince=performance.now(); showAsk(); }
+    else { recalib(); askPending=true; }   // спросим, когда замер закончится
+    loop();
   }catch(e){
     btn.disabled=false; btn.textContent='Запустить';
     $('lede').classList.remove('sum');
@@ -1654,7 +1730,7 @@ function stopAll(){
   closeAsk(); curTask=''; curPlan=''; $('task').classList.remove('on');
   $('bar').classList.remove('on'); closeSheet(); $('hud').classList.remove('on');
   $('veil').classList.remove('on'); $('tb').style.width='0';
-  $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=true;
+  $('cal').disabled=$('stop').disabled=$('learn').disabled=$('learnPh').disabled=$('learnScr').disabled=$('setupAll').disabled=true;
   if(ses.start){
     const total=performance.now()-ses.start;
     $('lede').innerHTML =
@@ -1681,6 +1757,7 @@ $('fVid').addEventListener('change',e=>{
 $('go').addEventListener('click',start);
 $('stop').addEventListener('click',stopAll);
 $('cal').addEventListener('click',()=>{ recalib(); closeSheet(); });
+$('setupAll').addEventListener('click', startSetup);
 $('learn').addEventListener('click', startTrain);
 $('learnPh').addEventListener('click', startPhoneTrain);
 $('learnScr').addEventListener('click', startScrTrain);
@@ -2018,6 +2095,9 @@ function renderAsk(step){
   list.appendChild(other);
 }
 function openAsk(){ renderAsk(1); $('ask').classList.add('on'); }
+/* Вопросы задаём, когда на экране уже ничего не меряется. Если база пришла
+   с диска, мерить нечего — спрашиваем сразу. */
+function showAsk(){ askPending=false; curTask=''; curPlan=''; paintTask(); openAsk(); }
 
 $('askSkip').addEventListener('click',closeAsk);
 $('ask').addEventListener('pointerdown',e=>{ if(e.target===$('ask')) closeAsk(); });
