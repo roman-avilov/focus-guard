@@ -6,6 +6,31 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#000000">
 <title>Focus Guard — не даёт отвлечься</title>
+
+<!-- Словарь нужного языка подключается ЗДЕСЬ и синхронно, до разметки.
+     Иначе страница успевает показаться по-русски и мигнуть при переводе.
+     document.write — единственный способ вставить блокирующий <script> из скрипта:
+     у динамически созданного тега порядок выполнения не гарантирован.
+     Русскому файл не нужен вовсе: он исходный язык и лежит прямо в разметке.
+     Файл не загрузился — приложение просто останется русским, без ошибок. -->
+<script>
+(function(){
+  try{
+    var q = new URLSearchParams(location.search).get('lang');
+    var l = q || localStorage.getItem('focusguard.lang') || 'ru';
+    if(l === 'ru' || !/^[a-z]{2}$/.test(l)) return;
+    /* Разметка русская, перевод накладывается уже готовой странице — значит
+       успевает мигнуть русским (замерено: отрисовка на 40 мс, перевод на 220 мс).
+       Поэтому до перевода текст не показываем. Фон body остаётся, так что это
+       не белая вспышка, а те же 0,2 с чёрного.
+       Русского это не касается вовсе: ему переводить нечего.
+       Страховка обязательна: упадёт скрипт — страница иначе останется пустой. */
+    document.documentElement.className += ' lang-wait';
+    setTimeout(function(){ document.documentElement.classList.remove('lang-wait'); }, 1500);
+    document.write('<scr'+'ipt src="lang/'+l+'.js"><\/scr'+'ipt>');
+  }catch(e){}
+})();
+</script>
 <meta name="description" content="Следит за взглядом через камеру: отвели глаза дольше пары секунд — на весь экран включается ваше видео. Всё считается в браузере, изображение с камеры никуда не уходит.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23000'/%3E%3Cpath d='M4 24C10 15 16.5 11.5 24 11.5S38 15 44 24C38 33 31.5 36.5 24 36.5S10 33 4 24Z' fill='none' stroke='%23f5f5f7' stroke-width='2.4' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='24' r='6.6' fill='none' stroke='%23f5f5f7' stroke-width='2.4'/%3E%3Ccircle cx='24' cy='24' r='2.8' fill='%230a84ff'/%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='11' fill='%23000'/%3E%3Cpath d='M4 24C10 15 16.5 11.5 24 11.5S38 15 44 24C38 33 31.5 36.5 24 36.5S10 33 4 24Z' fill='none' stroke='%23f5f5f7' stroke-width='2.4' stroke-linejoin='round'/%3E%3Ccircle cx='24' cy='24' r='6.6' fill='none' stroke='%23f5f5f7' stroke-width='2.4'/%3E%3Ccircle cx='24' cy='24' r='2.8' fill='%230a84ff'/%3E%3C/svg%3E">
@@ -68,6 +93,8 @@
      а блок входа через Google показывался при пустом Client ID.
      Проверять надо не наличие атрибута, а offsetParent элемента. */
   [hidden]{display:none!important}
+  /* Ставится из <head>, снимается сразу после applyLang — см. комментарий там */
+  .lang-wait body{visibility:hidden}
   html,body{height:100%;overflow:hidden}
   body{background:#04060a;color:var(--ink);-webkit-font-smoothing:antialiased}
   /* нажатие отзывается сразу: без 300 мс задержки тапа и без серой подсветки */
@@ -117,7 +144,11 @@
      любому продукту и потому читается как сгенерированная. */
   /* flex + margin:auto, а не place-items:center: при центрировании гридом
      содержимое выше экрана обрезается сверху и до него не доскроллить. */
-  #idle{position:fixed;inset:0;z-index:12;display:flex;overflow-y:auto;
+  /* z-index 1, а не 12. Стартовому экрану надо перекрыть ТОЛЬКО камеру (у неё
+     слоя нет), а не шапку, панель, меню и разделы. С двенадцатью он накрывал их
+     все: шестерёнка имела opacity 1 и pointer-events auto, но лежала под ним —
+     и была недоступна. Проверять надо elementFromPoint, а не вычисленные стили. */
+  #idle{position:fixed;inset:0;z-index:1;display:flex;overflow-y:auto;
     background:#000;transition:opacity .5s ease}
   /* visibility обязательна: без неё анимированный webp превью продолжает
      крутиться под opacity:0 — рядом с детекцией это отнятые кадры. */
@@ -202,8 +233,29 @@
      не прыгает при запуске. */
   #bar{position:fixed;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;gap:10px;
     padding:16px 18px;pointer-events:none}
-  #bar > *:not(#gear){opacity:0;pointer-events:none;transition:opacity .35s ease}
-  #bar.on > *:not(#gear){opacity:1;pointer-events:auto}
+  /* Знак виден всегда, как и шестерёнка: он и есть логотип продукта,
+     а не прибор. Приборы (статус, перерыв, занятие, кадры) — только при слежении. */
+  #bar > *:not(#gear):not(#brand):not(#lang){opacity:0;pointer-events:none;transition:opacity .35s ease}
+  #lang{transition:opacity .35s ease}
+  #bar.on > #lang{opacity:0;pointer-events:none}
+  #brand{display:flex;align-items:center;gap:9px;color:var(--ink);flex:none;
+    margin-right:4px;user-select:none}
+  #brand svg{width:22px;height:auto;display:block;opacity:.85}
+  /* Капслок здесь РАЗРЕШЁН, в отличие от интерфейса: это знак, а не подпись.
+     Но разрядка мелкая (.06em, а не .09–.14em как в приборном слое) — иначе
+     логотип прочитался бы как ещё одна строка приборов. */
+  #brand b{font-size:var(--t9);font-weight:680;letter-spacing:.06em;white-space:nowrap}
+
+  /* Исключения обязаны совпадать со строкой выше: иначе правило показа легче
+     правила скрытия и класс on ничего не включает — приборы и «Перерыв»
+     остаются невидимы всю сессию. */
+  #bar.on > *:not(#gear):not(#brand):not(#lang){opacity:1;pointer-events:auto}
+  /* На узком экране шапка не влезала: 437 px содержимого при экране 375,
+     шестерёнка оказывалась за краем и была недоступна. Началось со знака
+     (v34: 378 при 375), переключатель языка добил до 437.
+     Прячем только НАДПИСЬ знака — глаз остаётся, приложение узнаётся.
+     Порог 440: ровно та ширина, ниже которой содержимое перестаёт влезать. */
+
   .chip{display:flex;align-items:center;gap:8px;background:var(--glass);
     backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);
     border:1px solid var(--line);border-radius:999px;
@@ -219,13 +271,16 @@
     border:1px solid var(--line2);padding:7px 10px;border-radius:999px;
     font-variant-numeric:tabular-nums}
   /* кнопка «Перерыв» живёт в шапке: когда надо отойти — надо мгновенно */
-  #pause{pointer-events:auto;font:inherit;font-size:var(--t8);font-weight:510;letter-spacing:-.012em;
+  #pause,#lang{pointer-events:auto;font:inherit;font-size:var(--t8);font-weight:510;letter-spacing:-.012em;
     color:var(--ink);background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
     -webkit-backdrop-filter:blur(18px) saturate(180%);border:1px solid var(--line);
     border-radius:999px;padding:8px 14px;cursor:pointer;flex:none;
     transition:background .18s,border-color .18s,color .18s,transform var(--press)}
-  #pause:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
-  #pause:active{transform:scale(.95)}
+  #pause:hover,#lang:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
+  #pause:active,#lang:active{transform:scale(.95)}
+  /* Кнопка языка видна всегда, как знак и шестерёнка: сменить язык надо ДО того,
+     как начнёшь разбираться, а не после запуска камеры. */
+  #lang{letter-spacing:.04em;min-width:44px}
   #pause.on{background:rgba(var(--acc-rgb),.9);border-color:transparent;color:#fff}
   #pause.on:hover{background:rgba(var(--acc-rgb),1)}
 
@@ -241,7 +296,7 @@
   /* Меню по шестерёнке. Приложение переросло одну панель настроек: появились
      профиль и данные, и шестерёнка стала входом в них, а не сразу настройками.
      Выезжает из своего угла (transform-origin) — так видно, откуда оно взялось. */
-  #menu{position:fixed;z-index:11;top:58px;right:18px;min-width:13rem;padding:5px;
+  #menu,#langMenu{position:fixed;z-index:11;top:58px;right:18px;min-width:13rem;padding:5px;
     background:var(--glass);backdrop-filter:blur(2px) saturate(120%);
     -webkit-backdrop-filter:blur(2px) saturate(120%);
     border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.6);
@@ -251,18 +306,24 @@
   /* Размытие нарастает вместе с масштабом: стекло должно ПРИХОДИТЬ как материал,
      а не появляться уже готовым (apple-design, «Materialize, don't just fade»).
      Поверхность маленькая — 208×148, на детекцию это не влияет. */
-  #menu.on{opacity:1;transform:none;visibility:visible;pointer-events:auto;
+  #menu.on,#langMenu.on{opacity:1;transform:none;visibility:visible;pointer-events:auto;
     backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
     transition:opacity .14s ease,transform .2s cubic-bezier(.14,.85,.3,1),
       backdrop-filter .22s ease,-webkit-backdrop-filter .22s ease}
-  #menu button{display:flex;align-items:center;gap:11px;width:100%;
+  #menu button,#langMenu button{display:flex;align-items:center;gap:11px;width:100%;
     font-family:inherit;font-size:var(--t7);font-weight:450;letter-spacing:-.008em;
     color:var(--ink);background:none;border:0;border-radius:10px;
     padding:9px 10px;cursor:pointer;text-align:left;transition:background .15s ease}
-  #menu button:hover{background:rgba(255,255,255,.1)}
-  #menu button:active{background:rgba(255,255,255,.16);transform:scale(.97);
+  #menu button:hover,#langMenu button:hover{background:rgba(255,255,255,.1)}
+  #menu button:active,#langMenu button:active{background:rgba(255,255,255,.16);transform:scale(.97);
     transition:transform var(--press)}
   #menu svg{width:15px;height:15px;flex:none;color:var(--mut)}
+  /* Список языков — то же меню, что у шестерёнки, поэтому наследует #menu
+     целиком: стекло, тени, нарастающее размытие, скорости. Отличий два —
+     стоит слева и растёт из своего угла (apple-design: меню появляется
+     оттуда, откуда его позвали). */
+  #langMenu{left:12px;right:auto;min-width:11rem;transform-origin:0 0}
+  #langMenu button[aria-pressed="true"]{background:rgba(255,255,255,.12)}
   #menu hr{border:0;border-top:1px solid var(--line);margin:5px 8px}
 
   #tb{position:fixed;left:0;bottom:0;height:2px;width:0;background:var(--warn);z-index:7;
@@ -358,6 +419,10 @@
     transition:background .2s ease,color .2s ease}
   .seg button[aria-pressed="true"]{background:rgba(255,255,255,.17)}
   .seg button:active{opacity:.55;transition:opacity var(--press)}
+  /* Языков пять, и длинные названия («Azərbaycanca») в одну строку обрезались
+     даже на широком экране: колонка выходила 63 px. Поэтому список языков —
+     единственный сегмент, который идёт в две колонки, а не в строку. */
+  #langSeg{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
 
   /* Строки собраны в карточку с волосяными разделителями — как в системных настройках */
   .card{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
@@ -848,7 +913,7 @@
   /* «Уменьшить прозрачность»: стекло становится плотной поверхностью. */
   @media (prefers-reduced-transparency: reduce){
     :root{--glass:#0b0f16}
-    .chip,#fps,#gear,#sheet,#wiz,#menu{backdrop-filter:none!important;
+    .chip,#fps,#gear,#sheet,#wiz,#menu,#langMenu{backdrop-filter:none!important;
       -webkit-backdrop-filter:none!important}
     #sheet{background:#0b0f16}
     #wiz{background:#080b11}
@@ -869,7 +934,26 @@
     .sw input{background:rgba(255,255,255,.14)}
     #esc{color:#93a0b0}
   }
-</style>
+  /* ====== Узкий экран. Врезка стоит ПОСЛЕДНЕЙ намеренно:
+     у приборов шапки `flex:none` объявлен ниже по файлу, и при равном весе
+     побеждает то правило, что идёт позже. Поставишь выше — молча не сработает. */
+  @media (max-width:440px){
+    #brand b{display:none}
+    /* Последние пиксели: поля шапки с 18 до 12. Прятать показания кадров
+       ради трёх пикселей — хуже, чем чуть поджать края. */
+    #bar{padding-left:12px;padding-right:12px;gap:8px}
+    /* Чип занятия бывает длинным и в работе снова выталкивал шестерёнку.
+       min-width:0 разрешает ему сжаться — многоточие у #task b уже настроено.
+       Это было и до знака в шапке: чип один способен занять 300 px. */
+    /* flex-shrink у приборов стоит 0 — потому min-width:0 сам по себе
+       ничего не давал: чип держал свои 300 px. Разрешаем сжиматься именно ему,
+       многоточие у #task b уже настроено. */
+    #task{min-width:0;flex:0 1 auto}
+    /* Скрытый переключатель всё равно держал 49 px и толкал шестерёнку.
+       На широком экране оставляем плавное исчезновение, здесь место важнее. */
+    #bar.on > #lang{display:none}
+    #gear{flex:none}
+  }</style>
 </head>
 <body>
 
@@ -878,6 +962,14 @@
 <div id="veil"></div>
 
 <div id="bar">
+  <span id="brand">
+    <svg viewBox="0 0 48 26" fill="none" aria-hidden="true">
+      <path d="M1.6 13C9 3.6 17 .9 24 .9s15 2.7 22.4 12.1C39 22.4 31 25.1 24 25.1S9 22.4 1.6 13Z"
+            stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      <circle cx="24" cy="13" r="6.4" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="24" cy="13" r="2.6" fill="var(--acc)"/>
+    </svg><b>FOCUS GUARD</b></span>
+  <button id="lang" type="button" data-no-t title="Language">RU</button>
   <span class="chip"><span class="dot" id="dot"></span><span id="stat">—</span></span>
   <button id="pause">Перерыв</button>
   <button id="task" title="Сменить занятие"></button>
@@ -888,6 +980,18 @@
       <circle cx="5.6" cy="4.5" r="2.1" fill="#141416" stroke="currentColor" stroke-width="1.4"/>
       <circle cx="10.6" cy="11.5" r="2.1" fill="#141416" stroke="currentColor" stroke-width="1.4"/>
     </svg></button>
+</div>
+
+<!-- Языков пять: кнопка открывает список, а не перебирает по кругу —
+     иначе до своего языка четыре нажатия и четыре перезагрузки.
+     Названия на самих языках и под data-no-t: «Қазақша» не переводится. -->
+<div id="langMenu" class="menu-pop" role="menu" aria-hidden="true" data-no-t>
+  <button type="button" role="menuitem" data-lang="ru">Русский</button>
+  <button type="button" role="menuitem" data-lang="en">English</button>
+  <button type="button" role="menuitem" data-lang="kk">Қазақша</button>
+  <button type="button" role="menuitem" data-lang="uz">O&rsquo;zbekcha</button>
+  <button type="button" role="menuitem" data-lang="az">Az&#601;rbaycanca</button>
+  <button type="button" role="menuitem" data-lang="ky">Кыргызча</button>
 </div>
 
 <div id="menu" role="menu" aria-hidden="true">
@@ -949,18 +1053,14 @@
 <div id="idle">
   <div class="hero">
     <div class="hcol">
-      <svg class="mark" viewBox="0 0 48 26" fill="none" aria-hidden="true">
-        <path d="M1.6 13C9 3.6 17 .9 24 .9s15 2.7 22.4 12.1C39 22.4 31 25.1 24 25.1S9 22.4 1.6 13Z"
-              stroke="rgba(245,245,247,.55)" stroke-width="1.25" stroke-linejoin="round"/>
-        <circle cx="24" cy="13" r="6.4" stroke="rgba(245,245,247,.75)" stroke-width="1.25"/>
-        <circle cx="24" cy="13" r="2.5" fill="var(--acc)"/>
-      </svg>
+      <!-- Глаз уехал в шапку: два одинаковых знака на одном экране — это не
+           узнаваемость, а повтор. Заголовку освободилось место. -->
       <h1>Focus&nbsp;Guard</h1>
-      <p class="lede" id="lede">Отвели взгляд — и на весь экран влетает <b>то, что вы выбрали сами</b>.
+      <p class="lede" id="lede" data-t>Отвели взгляд — и на весь экран влетает <b>то, что вы выбрали сами</b>.
         Всё считает ваш браузер: ни один кадр не уходит с компьютера.</p>
       <div class="cta">
         <button id="go">Запустить</button>
-        <span class="perm"><b>Бесплатно, без регистрации, прямо в браузере.</b>
+        <span class="perm" data-t><b>Бесплатно, без регистрации, прямо в браузере.</b>
           Понадобится доступ к камере.</span>
       </div>
     </div>
@@ -1061,6 +1161,19 @@
     ⚠ Браузер не даёт этой странице ничего сохранять, потому что файл открыт напрямую с диска.
     Настройки и оба обучения будут теряться при каждой перезагрузке.
     Решение — открывать приложение по адресу сайта, а не файлом.</p>
+
+  <h2 data-no-t><i class="ic ic-grey"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="5.6" stroke="currentColor" stroke-width="1.5"/>
+    <path d="M2.4 8h11.2M8 2.4c1.5 1.6 2.3 3.5 2.3 5.6S9.5 12 8 13.6C6.5 12 5.7 10.1 5.7 8S6.5 4 8 2.4Z"
+      stroke="currentColor" stroke-width="1.5"/></svg></i>Language</h2>
+  <div class="seg" id="langSeg" data-no-t>
+    <button type="button" data-lang="ru">Русский</button>
+    <button type="button" data-lang="en">English</button>
+    <button type="button" data-lang="kk">Қазақша</button>
+    <button type="button" data-lang="uz">O&rsquo;zbekcha</button>
+    <button type="button" data-lang="az">Az&#601;rbaycanca</button>
+    <button type="button" data-lang="ky">Кыргызча</button>
+  </div>
 
   <div class="acts" style="grid-template-columns:1fr">
     <button id="stop" disabled>Остановить</button>
@@ -1245,6 +1358,108 @@ import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 const $ = id => document.getElementById(id);
 
 /* ============================================================
+   ЯЗЫКИ. Словарь устроен НЕОБЫЧНО: ключ — сама русская строка.
+   Так сделано нарочно:
+   • разметку править не пришлось ни в одном месте — обходчик DOM находит
+     русский текст и подменяет его;
+   • нет перевода — остаётся русский. Никогда не пустая строка и не поломка;
+   • видно, что не переведено: сравнить найденное со словарём.
+   Русский — исходный язык, для него словаря нет вообще.
+   Смена языка перезагружает страницу: так динамические экраны рисуются
+   на нужном языке сразу, а не переводятся задним числом.
+   ============================================================ */
+const LANGKEY='focusguard.lang';
+let LANG='ru';
+try{ LANG=localStorage.getItem(LANGKEY)||'ru'; }catch(e){}
+/* ?lang=en в адресе задаёт язык и запоминает его: так можно дать человеку
+   ссылку сразу на нужном языке, не заставляя искать переключатель. */
+/* Добавить язык: положить lang/<код>.js, дописать код сюда и кнопку в #langSeg. */
+const LANGS=['ru','en','kk','uz','az','ky'];
+{ const q=new URLSearchParams(location.search).get('lang');
+  if(q && LANGS.includes(q)){ LANG=q; try{ localStorage.setItem(LANGKEY,q); }catch(e){} } }
+/* Словарь пришёл из lang/<код>.js — обычным <script> из <head>, см. там же почему.
+   Сверяем код языка: если в файле лежит не тот язык (старый кэш, чужая ссылка),
+   лучше остаться на русском, чем показать половину интерфейса на третьем языке. */
+const DICT = (window.FG_DICT && window.FG_DICT.lang === LANG)
+  ? { [LANG]: window.FG_DICT.dict } : {};
+const t = s => LANG==='ru' ? s : (DICT[LANG] && DICT[LANG][s]) || s;
+/* шаблон: значения подставляются ПОСЛЕ перевода — иначе фраза рвётся на кусках */
+const tf = (s,...v) => t(s).replace(/%(\d)/g, (m,i)=>v[i-1]);
+const LOC = LANG==='ru' ? 'ru-RU' : 'en-GB';
+
+function applyLang(root){
+  if(LANG==='ru') return;
+  const d=DICT[LANG]; if(!d) return;
+  root=root||document.body;
+  /* Фразы с разметкой внутри (<b> посреди предложения) переводятся ЦЕЛИКОМ,
+     одним ключом: в английском и казахском порядок слов другой, и выделенный
+     кусок оказывается в другом месте фразы. Ключ — весь текст без разметки. */
+  const roots=[...root.querySelectorAll('[data-t]')];
+  if(root.hasAttribute && root.hasAttribute('data-t')) roots.unshift(root);
+  roots.forEach(e=>{
+    if(e.closest('[data-no-t]')) return;
+    const k=e.textContent.replace(/\s+/g,' ').trim();
+    const v=d[k]; if(v) e.innerHTML=v;
+  });
+  const w=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(n){
+      if(!/[А-Яа-яЁё]/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+      const p=n.parentElement;
+      if(!p) return NodeFilter.FILTER_REJECT;
+      /* data-no-t защищает то, что переводить нельзя: имя человека,
+         название его файла, сам переключатель языков. */
+      if(p.closest('[data-no-t]')) return NodeFilter.FILTER_REJECT;
+      if(/^(SCRIPT|STYLE|TEXTAREA)$/.test(p.tagName)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+  const nodes=[]; while(w.nextNode()) nodes.push(w.currentNode);
+  for(const n of nodes){
+    /* В разметке фраза разбита переносами строк, в словаре — одной строкой.
+       Поэтому ключ нормализуем, а отступы и nbsp вокруг возвращаем на место. */
+    const raw=n.nodeValue, k=raw.trim().replace(/\s+/g,' '); if(!k) continue;
+    const v=d[k]; if(!v) continue;
+    n.nodeValue = raw.match(/^\s*/)[0] + v + raw.match(/\s*$/)[0];
+  }
+  const attrs=[...root.querySelectorAll('[title],[placeholder],[aria-label]')];
+  if(root.matches && root.matches('[title],[placeholder],[aria-label]')) attrs.unshift(root);
+  attrs.forEach(e=>{
+    if(e.closest('[data-no-t]')) return;
+    for(const a of ['title','placeholder','aria-label']){
+      const val=e.getAttribute(a); if(!val) continue;
+      const v=d[val.trim()]; if(v) e.setAttribute(a,v);
+    }
+  });
+}
+let langBusy=false;
+function watchLang(){
+  if(LANG==='ru') return;
+  new MutationObserver(ms=>{
+    if(langBusy) return;
+    langBusy=true;
+    try{
+      for(const m of ms) for(const nd of m.addedNodes){
+        if(nd.nodeType===1) applyLang(nd);
+        else if(nd.nodeType===3 && /[А-Яа-яЁё]/.test(nd.nodeValue) && nd.parentElement)
+          applyLang(nd.parentElement);
+      }
+    } finally { langBusy=false; }
+  }).observe(document.body,{childList:true,subtree:true});
+}
+
+/* Сколько русского осталось непереведённым — для проверки, а не для человека. */
+function langMisses(){
+  if(LANG==='ru') return [];
+  const d=DICT[LANG], miss=new Set();
+  const w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode:n=>/[А-Яа-яЁё]/.test(n.nodeValue) && !n.parentElement?.closest('[data-no-t]')
+      ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT });
+  while(w.nextNode()){ const k=w.currentNode.nodeValue.trim().replace(/\s+/g,' ');
+    if(k && !d[k]) miss.add(k); }
+  return [...miss];
+}
+
+/* ============================================================
    ВХОД ЧЕРЕЗ GOOGLE — вставьте сюда Client ID и больше ничего не трогайте.
    Берётся в Google Cloud Console → «Учётные данные» → «Идентификатор клиента OAuth».
    Пока строка пустая, раздела входа просто нет и к Google никто не обращается.
@@ -1291,13 +1506,14 @@ function setPaused(v){
 function showLastFire(){
   if(!$('lastFire')) return;
   $('lastFire').innerHTML = lastFire
-    ? `Последнее отвлечение: <b>${lastFire.r}</b> в ${lastFire.t.toLocaleTimeString('ru-RU').slice(0,5)}`
+    ? tf('Последнее отвлечение: <b>%1</b> в %2', t(lastFire.r), lastFire.t.toLocaleTimeString(LOC).slice(0,5))
     : 'Отвлечений в этой сессии ещё не было.';
 }
 
 const mmss = ms => { const t=Math.max(0,Math.round(ms/1000));
   return Math.floor(t/60)+':'+String(t%60).padStart(2,'0'); };
 const plural = (n,a,b,c) => { const d=n%100, e=n%10;
+  if(LANG!=='ru') return n+' '+t(n===1 ? a : b);
   return n+' '+(d>=11&&d<=14 ? c : e===1 ? a : e>=2&&e<=4 ? b : c); };
 
 const DKEY='focusguard.days';
@@ -1454,8 +1670,8 @@ function seqAdvance(title, ok){
 function setupInfo(){
   let at=0; try{ at=(JSON.parse(localStorage.getItem(SETKEY)||'null')||{}).at||0; }catch(e){}
   $('setupInfo').innerHTML = at
-    ? `Настроено <b>${new Date(at).toLocaleDateString('ru-RU',{day:'numeric',month:'long'})}</b>. `+
-      `Запускается молча — замерять заново не нужно. Пересядешь иначе или сменится свет — пройди ещё раз.`
+    ? tf('Настроено <b>%1</b>. Запускается молча — замерять заново не нужно. Пересядешь иначе или сменится свет — пройди ещё раз.',
+         new Date(at).toLocaleDateString(LOC,{day:'numeric',month:'long'}))
     : `Ещё не настроено: пороги усреднённые. Одна тренировка на <b>полминуты</b> — и приложение подстроится под вас.`;
 }
 function showSetupResult(){
@@ -1744,7 +1960,7 @@ function drawStats(){
   $('sWork').textContent  = mmss(Math.max(0,total-ses.lost-pausedMs()));
   const d=dayStats();
   $('today').innerHTML = d.count
-    ? `За сегодня всего: <b>${plural(d.count,'отвлечение','отвлечения','отвлечений')}</b>, <b>${mmss(d.lost)}</b> мимо работы.`
+    ? tf('За сегодня всего: <b>%1</b>, <b>%2</b> мимо работы.', plural(d.count,'отвлечение','отвлечения','отвлечений'), mmss(d.lost))
     : 'За сегодня это первая сессия.';
 }
 
@@ -2199,8 +2415,8 @@ function stopAll(){
   if(ses.start){
     const total=performance.now()-ses.start;
     $('lede').innerHTML =
-      `Сессия <b>${mmss(total)}</b>, из них в фокусе <b>${mmss(total-ses.lost)}</b>.<br>` +
-      (ses.count ? `Отвлеклись <b>${plural(ses.count,'раз','раза','раз')}</b>, потеряли <b>${mmss(ses.lost)}</b>, самое долгое — <b>${mmss(ses.longest)}</b>.`
+      tf('Сессия <b>%1</b>, из них в фокусе <b>%2</b>.', mmss(total), mmss(total-ses.lost)) + '<br>' +
+      (ses.count ? tf('Отвлеклись <b>%1</b>, потеряли <b>%2</b>, самое долгое — <b>%3</b>.', plural(ses.count,'раз','раза','раз'), mmss(ses.lost), mmss(ses.longest))
                  : 'Ни одного отвлечения. Так и надо.');
     $('lede').classList.add('sum');
   }
@@ -2437,19 +2653,21 @@ let stRange='30m';
    На этой странице длительности пишем словами. */
 function durText(ms){
   const s=Math.round(ms/1000);
-  if(s<60) return s+' с';
+  if(s<60) return s+t(' с');
   const m=Math.round(s/60);
-  if(m<60) return m+' мин';
+  if(m<60) return m+t(' мин');
   const h=Math.floor(m/60), r=m%60;
-  return r ? h+' ч '+r+' мин' : h+' ч';
+  return r ? h+t(' ч ')+r+t(' мин') : h+t(' ч');
 }
 function durAxis(ms){
   const s=Math.round(ms/1000);
-  if(s<60) return s+' с';
+  if(s<60) return s+t(' с');
   const m=s/60;
-  if(m<60) return Math.round(m)+' мин';
+  if(m<60) return Math.round(m)+t(' мин');
   const h=m/60;
-  return (h<10 ? h.toFixed(1).replace('.',',') : String(Math.round(h)))+' ч';
+  /* дробь: у нас запятая, в английском точка */
+  return (h<10 ? (LANG==='ru' ? h.toFixed(1).replace('.',',') : h.toFixed(1))
+               : String(Math.round(h)))+t(' ч');
 }
 
 const overlap=(a1,a2,b1,b2)=>Math.max(0, Math.min(a2,b2)-Math.max(a1,b1));
@@ -2462,9 +2680,9 @@ function statsBuckets(key){
     for(let i=R.days-1;i>=0;i--){
       const d=new Date(now-i*86400000), k=dayKey(d), rec=all[k]||{count:0,lost:0};
       out.push({v:rec.lost||0, n:rec.count||0, plan:rec.plan||'',
-                label:R.days<=7 ? ['вс','пн','вт','ср','чт','пт','сб'][d.getDay()]
+                label:R.days<=7 ? t(['вс','пн','вт','ср','чт','пт','сб'][d.getDay()])
                                 : (d.getDate()%5===0 ? String(d.getDate()) : ''),
-                full:d.toLocaleDateString('ru-RU',{day:'numeric',month:'long'})});
+                full:d.toLocaleDateString(LOC,{day:'numeric',month:'long'})});
     }
   } else {
     const log=readLog(), span=R.step*60000, n=R.mins/R.step, from=now-R.mins*60000;
@@ -2473,8 +2691,8 @@ function statsBuckets(key){
       let v=0, c=0;
       for(const e of log){ const o=overlap(e.t,e.t+e.d,b0,b1); if(o>0){ v+=o; c++; } }
       const dt=new Date(b0);
-      out.push({v, n:c, label:(i%6===0)?dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'',
-                full:dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})});
+      out.push({v, n:c, label:(i%6===0)?dt.toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'}):'',
+                full:dt.toLocaleTimeString(LOC,{hour:'2-digit',minute:'2-digit'})});
     }
   }
   return out;
@@ -2495,11 +2713,11 @@ function drawGoal(){
   $('gTitle').textContent = over ? 'Бюджет на сегодня исчерпан' : 'Цель на сегодня';
   const day=dayStats();
   $('gPlan').innerHTML = day.plan
-    ? `Планировал <b>${day.plan}</b>, просидел <b>${durText(day.sat||0)}</b>.`
-    : (day.sat ? `Просидел сегодня <b>${durText(day.sat)}</b>.` : '');
+    ? tf('Планировал <b>%1</b>, просидел <b>%2</b>.', t(day.plan), durText(day.sat||0))
+    : (day.sat ? tf('Просидел сегодня <b>%1</b>.', durText(day.sat)) : '');
   $('gText').innerHTML = over
-    ? `Потеряно <b>${durText(spent)}</b> при бюджете <b>${durText(budget)}</b> — перебор на <b>${durText(spent-budget)}</b>.`
-    : `Потеряно <b>${durText(spent)}</b> из <b>${durText(budget)}</b>. Осталось <b>${durText(budget-spent)}</b>.`;
+    ? tf('Потеряно <b>%1</b> при бюджете <b>%2</b> — перебор на <b>%3</b>.', durText(spent), durText(budget), durText(spent-budget))
+    : tf('Потеряно <b>%1</b> из <b>%2</b>. Осталось <b>%3</b>.', durText(spent), durText(budget), durText(budget-spent));
 }
 
 function drawChart(){
@@ -2535,9 +2753,9 @@ function drawChart(){
      моргнул детектор, полминуты — человек действительно вставал. Без неё
      «вас нет в кадре — 8» не говорит ничего. */
   $('stWhy').innerHTML = byReason.length
-    ? 'За что ловит: ' + byReason.slice(0,3).map(x=>
-        `<b>${x[0]}</b> — ${x[1]}, в среднем ${durText(dur[x[0]]/x[1])}`).join('; ')
-      + (allFires?` (всего ${allFires})`:'')
+    ? t('За что ловит: ') + byReason.slice(0,3).map(x=>
+        tf('%1 — %2, в среднем %3', '<b>'+t(x[0])+'</b>', x[1], durText(dur[x[0]]/x[1]))).join('; ')
+      + (allFires?tf(' (всего %1)', allFires):'')
       + (Object.keys(md).length ? '. Режим: '+Object.entries(md).sort((a,b)=>b[1]-a[1])[0][0] : '')
     : '';
   $('stNote').textContent = R.days
@@ -2590,7 +2808,7 @@ $('stBars').addEventListener('pointermove',e=>{
   const d=$('stBars')._data?.[+bar.dataset.i]; if(!d){ tip.classList.remove('on'); return; }
   const box=$('stBox').getBoundingClientRect(), r=bar.getBoundingClientRect();
   tip.innerHTML=`<em>${d.full}</em><b>${durText(d.v)}</b>`
-    + (d.plan ? `<em style="margin-left:8px;margin-right:0">план: ${d.plan}</em>` : '');
+    + (d.plan ? `<em style="margin-left:8px;margin-right:0">${tf('план: %1', t(d.plan))}</em>` : '');
   tip.style.left=(r.left-box.left+r.width/2)+'px';
   tip.style.top=(r.top-box.top-8)+'px';
   tip.classList.add('on');
@@ -2614,8 +2832,10 @@ function paintTask(){
   const el=$('task');
   el.innerHTML='';
   if(curTask){
-    const b=document.createElement('b'); b.textContent=curTask; el.append(b);
-    if(curPlan){ const i=document.createElement('i'); i.textContent='· '+curPlan; el.append(i); }
+    /* В хранилище занятие и план лежат по-русски — это ключ, как причины в журнале.
+       Переводим только на показе, иначе выбор в одном языке не найдётся в другом. */
+    const b=document.createElement('b'); b.textContent=t(curTask); el.append(b);
+    if(curPlan){ const i=document.createElement('i'); i.textContent='· '+t(curPlan); el.append(i); }
   }
   el.classList.toggle('on', !!curTask);
 }
@@ -2713,7 +2933,65 @@ function openMenu(){ $('menu').classList.add('on'); $('menu').setAttribute('aria
 function closeLayers(){ LAYERS.forEach(id=>$(id).classList.remove('on')); }
 function openLayer(id){ closeSheet(); closeStats(); closeLayers(); $(id).classList.add('on'); }
 
-$('gear').addEventListener('click',e=>{ e.stopPropagation(); menuOpen()?closeMenu():openMenu(); });
+/* Языка два, поэтому переключатель — одна кнопка, а не список: показывает
+   текущий язык и по нажатию меняет его на другой. */
+/* Смена языка идёт перезагрузкой: applyLang умеет переводить только С русского,
+   а после первого перевода русского в разметке уже нет. Держать ради этого
+   теневую копию всей страницы дороже, чем перезагрузиться.
+   В шапке переключатель показан только до запуска — прерывать нечего.
+   В настройках сессия может идти, поэтому там спрашиваем. */
+function setLang(code){
+  if(code===LANG) return;
+  if(running && !confirm(t('Смена языка перезагрузит страницу — текущая сессия прервётся. Продолжить?'))) {
+    paintLangSeg(); return;
+  }
+  try{ localStorage.setItem(LANGKEY, code); }catch(e){}
+  /* ?lang= в адресе сильнее сохранённого выбора, поэтому при смене его убираем —
+     иначе по ссылке с параметром переключатель молча ничего не делает. */
+  const u=new URL(location.href); u.searchParams.delete('lang');
+  location.replace(u.toString());
+}
+function paintLangSeg(){
+  const seg=$('langSeg'); if(!seg) return;
+  /* Сегмент красится по aria-pressed, а не по классу — так же, как режимы */
+  [...seg.children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.lang===LANG)));
+}
+$('lang').textContent = LANG.toUpperCase();
+$('lang').title = 'Language';
+$('lang').setAttribute('aria-haspopup','menu');
+
+/* Языков пять — перебор по кругу означал бы до четырёх перезагрузок, пока
+   человек дойдёт до своего. Поэтому кнопка открывает список. Вид кнопки
+   прежний: та же таблетка, что «Перерыв», на том же месте. */
+const langMenuOpen = () => $('langMenu').classList.contains('on');
+function closeLangMenu(){ $('langMenu').classList.remove('on');
+  $('langMenu').setAttribute('aria-hidden','true'); $('lang').setAttribute('aria-expanded','false'); }
+function openLangMenu(){
+  [...$('langMenu').children].forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.lang===LANG)));
+  /* Левый край списка совпадает с левым краем кнопки — видно, откуда он взялся
+     (apple-design). Считаем каждый раз: на узком экране надпись знака скрыта
+     и кнопка стоит в другом месте. */
+  const r=$('lang').getBoundingClientRect();
+  $('langMenu').style.left = Math.round(r.left)+'px';
+  $('langMenu').classList.add('on');
+  $('langMenu').setAttribute('aria-hidden','false'); $('lang').setAttribute('aria-expanded','true'); }
+$('lang').addEventListener('click',e=>{
+  e.stopPropagation(); closeMenu();
+  langMenuOpen()?closeLangMenu():openLangMenu(); });
+$('langMenu').addEventListener('click',e=>{
+  const b=e.target.closest('[data-lang]'); if(!b) return;
+  closeLangMenu(); setLang(b.dataset.lang); });
+closeLangMenu();
+$('langSeg').addEventListener('click',e=>{
+  const b=e.target.closest('[data-lang]'); if(b) setLang(b.dataset.lang);
+});
+paintLangSeg();
+document.documentElement.lang=LANG;   /* для переносов, проверки орфографии и экранного диктора */
+applyLang(); watchLang();
+document.documentElement.classList.remove('lang-wait');   /* текст переведён — показываем */
+
+$('gear').addEventListener('click',e=>{ e.stopPropagation(); closeLangMenu();
+  menuOpen()?closeMenu():openMenu(); });
 $('menu').addEventListener('click',e=>{
   const b=e.target.closest('button[data-go]'); if(!b) return;
   closeMenu();
@@ -2725,6 +3003,7 @@ $('menu').addEventListener('click',e=>{
 });
 document.addEventListener('click',e=>{
   if(menuOpen() && !e.target.closest('#menu') && !e.target.closest('#gear')) closeMenu();
+  if(langMenuOpen() && !e.target.closest('#langMenu') && !e.target.closest('#lang')) closeLangMenu();
 });
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-close]'); if(b) $(b.dataset.close).classList.remove('on');
@@ -2733,7 +3012,8 @@ document.addEventListener('click',e=>{
 $('close').addEventListener('click',closeSheet);
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(menuOpen()) closeMenu();
+  if(langMenuOpen()) closeLangMenu();
+  else if(menuOpen()) closeMenu();
   else if($('ask').classList.contains('on')) closeAsk();
   else if(boomOn) calm();
   else if(LAYERS.some(id=>$(id).classList.contains('on'))) closeLayers();
