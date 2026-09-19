@@ -69,6 +69,12 @@
     --press:110ms cubic-bezier(.25,.1,.25,1); /* отклик на нажатие — почти мгновенный */
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
 
+    /* Светлая палитра стартового экрана. Живёт ЗДЕСЬ, а не на #idle:
+       шапка #bar лежит вне #idle и переменные оттуда не наследует —
+       объявление становилось недействительным, и цвет не менялся. */
+    --l-ink:#0b0b0c; --l-mut:#55565a; --l-mut2:#8b8c90;
+    --l-card:#f7f7f5; --l-line:rgba(0,0,0,.07);
+
     /* Шкала кеглей в rem: 1rem = системный размер шрифта, по умолчанию 16px.
        Человек увеличил шрифт в настройках — интерфейс вырос вместе с ним.
        Значения в комментариях — сколько это в пикселях при обычных настройках.
@@ -148,59 +154,104 @@
      слоя нет), а не шапку, панель, меню и разделы. С двенадцатью он накрывал их
      все: шестерёнка имела opacity 1 и pointer-events auto, но лежала под ним —
      и была недоступна. Проверять надо elementFromPoint, а не вычисленные стили. */
+  /* ============ СТАРТОВЫЙ ЭКРАН — СВЕТЛЫЙ ============
+     Выбран Романом 19 сентября из четырёх вариантов (вариант «Бумага»,
+     образец — notion.com). Приложение остаётся тёмным: стартовый экран —
+     витрина, всё остальное — инструмент.
+
+     Светлые цвета заперты ВНУТРИ #idle своими переменными. Глобальные
+     --ink/--mut/--mut2 не трогаем: на них держится весь тёмный интерфейс. */
   #idle{position:fixed;inset:0;z-index:1;display:flex;overflow-y:auto;
-    background:#000;transition:opacity .5s ease}
+    background:#fff;color:var(--l-ink);transition:opacity .5s ease}
   /* visibility обязательна: без неё анимированный webp превью продолжает
      крутиться под opacity:0 — рядом с детекцией это отнятые кадры. */
   #idle.gone{opacity:0;pointer-events:none;visibility:hidden;
     transition:opacity .5s ease,visibility 0s linear .5s}
-  #idle::before{content:"";position:absolute;inset:0;pointer-events:none;
-    background:radial-gradient(1180px 620px at 50% 24%,rgba(255,255,255,.052),transparent 68%)}
 
-  /* Две колонки: слева слова, справа сам продукт. Раньше здесь была
-     центрованная колонка с тремя цифрами — самая шаблонная раскладка, какая
-     бывает: подставь другое название, и ничего не изменится. */
-  .hero{position:relative;margin:auto;display:grid;align-items:center;
-    grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);
-    gap:clamp(36px,5vw,76px);width:100%;max-width:72.5rem;
-    padding:48px clamp(24px,5vw,56px);text-align:left}
-  .hcol>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
-  .hcol .mark{animation-delay:.02s} #idle h1{animation-delay:.08s}
-  .lede{animation-delay:.15s} .cta{animation-delay:.22s}
-  .demo{animation:rise .74s cubic-bezier(.22,.68,0,1) both .28s}
+  /* Шапка лежит ПОВЕРХ стартового экрана (z-index 6 против 1), а её знак,
+     переключатель и шестерёнка почти белые — на белом они исчезли бы.
+     Пока слежение не идёт, красим их в тёмное. Состояния синхронны:
+     .on снимается ровно тогда же, когда с #idle снимается .gone. */
+  #bar:not(.on) #brand{color:var(--l-ink)}
+  #bar:not(.on) #gear{
+    color:var(--l-ink);background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.10);
+    backdrop-filter:none;-webkit-backdrop-filter:none}
+  #bar:not(.on) #gear:hover{background:rgba(0,0,0,.09)}
+  #bar:not(.on) #lang{
+    color:var(--l-ink);background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.10);
+    backdrop-filter:none;-webkit-backdrop-filter:none}
+  #bar:not(.on) #lang:hover{background:rgba(0,0,0,.09)}
+
+  .hero{position:relative;margin:auto;width:100%;max-width:74rem;
+    padding:clamp(76px,9vh,104px) clamp(20px,5vw,40px) clamp(48px,7vh,80px)}
+  .phero{text-align:center;max-width:56rem;margin:0 auto}
+  .phero>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
+  #idle h1{animation-delay:.04s} .lede{animation-delay:.12s}
+  .cta{animation-delay:.2s} .perm{animation-delay:.26s}
+  .pcards{animation:rise .74s cubic-bezier(.22,.68,0,1) both .3s}
   @keyframes rise{from{opacity:0;transform:translateY(14px)}}
 
-  .mark{width:44px;height:auto;margin-bottom:24px;display:block}
-  #idle h1{font-size:clamp(2.5rem,5.6vw,4.5rem);font-weight:600;letter-spacing:-.045em;
-    line-height:.95;color:var(--ink)}
-  .lede{margin-top:21px;max-width:40ch;color:var(--mut);text-wrap:pretty;
-    font-size:clamp(var(--t6),1.35vw,var(--t5));line-height:1.6;letter-spacing:-.011em}
-  .lede b{color:var(--ink);font-weight:500}
+  /* Плакатный кегль — одно из немногих мест вне шкалы, см. CLAUDE.md.
+     Крупнее и ПЛОТНЕЕ прежнего: у Notion заголовок 96px при трекинге −4.6px,
+     и именно плотность делает его дорогим, а не размер. */
+  #idle h1{font-size:clamp(2.6rem,7vw,5.25rem);font-weight:620;line-height:1.02;
+    letter-spacing:-.048em;color:var(--l-ink);text-wrap:balance}
+  /* Цветное пятно ровно одно на весь экран — вокруг одного слова.
+     Приём Notion: цвета мало, поэтому он и читается как «подобранный». */
+  .pmark{display:inline-flex;align-items:center;gap:.26em;
+    background:#ffe9a8;border-radius:999px;padding:.02em .34em .08em}
+  .pmark i{width:.32em;height:.32em;border-radius:50%;background:#f0a90c;flex:none}
+
+  .lede{margin:24px auto 0;max-width:52ch;color:var(--l-mut);text-wrap:pretty;
+    font-size:var(--t5);line-height:1.5;letter-spacing:-.008em}
+  .lede b{color:var(--l-ink);font-weight:520}
   .lede.sum{max-width:40ch;color:var(--mut);font-size:var(--t6);line-height:1.8}
   .lede.sum b{color:var(--ink);font-weight:590;font-variant-numeric:tabular-nums}
-  .cta{margin-top:34px;display:flex;flex-direction:column;align-items:flex-start;gap:14px}
-  #go{font:inherit;font-size:var(--t6);font-weight:590;letter-spacing:-.012em;border:0;
-    border-radius:999px;padding:17px 52px;background:var(--ink);color:#000;cursor:pointer;
-    transition:transform .2s var(--spring),box-shadow .2s ease,opacity .18s}
-  #go:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 20px 48px -20px rgba(245,245,247,.75)}
-  #go:active:not(:disabled){transform:translateY(-1px) scale(.965);transition:transform var(--press)}
-  #go:disabled{opacity:.38;cursor:default;transform:none;box-shadow:none}
-  .perm{font-size:var(--t8);letter-spacing:-.004em;color:var(--mut2);max-width:34ch;line-height:1.55}
-  /* Главное в строке — снятие сомнений, оговорка про камеру идёт следом и тише */
-  .perm b{color:var(--mut);font-weight:450}
+
+  .cta{margin-top:30px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
+  #go{font:inherit;font-size:var(--t6);font-weight:560;letter-spacing:-.012em;border:0;
+    border-radius:999px;padding:15px 28px;background:var(--acc);color:#fff;cursor:pointer;
+    transition:transform var(--press),filter .18s ease,opacity .18s}
+  #go:hover:not(:disabled){filter:brightness(1.08)}
+  #go:active:not(:disabled){transform:scale(.97)}
+  #go:disabled{opacity:.42;cursor:default;transform:none;filter:none}
+  #goReact{font:inherit;font-size:var(--t6);font-weight:540;letter-spacing:-.012em;border:0;
+    border-radius:999px;padding:15px 24px;cursor:pointer;
+    background:rgba(var(--acc-rgb),.1);color:var(--acc);
+    transition:transform var(--press),background .18s ease}
+  #goReact:hover{background:rgba(var(--acc-rgb),.17)}
+  #goReact:active{transform:scale(.97)}
+  .perm{display:block;margin-top:16px;font-size:var(--t8);letter-spacing:-.004em;
+    color:var(--l-mut2);line-height:1.55}
+  .perm b{color:var(--l-mut);font-weight:450}
+
+  /* ---------- три карточки продукта ---------- */
+  .pcards{margin-top:clamp(44px,6vh,72px);display:grid;gap:18px;
+    grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))}
+  .pcard{background:var(--l-card);border-radius:20px;padding:22px 22px 0;overflow:hidden;
+    box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 28px rgba(0,0,0,.05)}
+  .plbl{font-size:var(--t8);color:var(--l-mut2);margin-bottom:6px}
+  .pcard h3{font-size:var(--t4);font-weight:600;letter-spacing:-.024em;line-height:1.2;
+    color:var(--l-ink)}
+  .pchips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+  .pchip{font-size:var(--t9);font-weight:540;padding:4px 9px;border-radius:999px}
+  .pchip.a{background:#e7f0ff;color:#1d5fd0}
+  .pchip.b{background:#e4f6e8;color:#1c7a36}
+  .pchip.c{background:#ffeede;color:#b35f09}
+  .pshot,.pcard .demo{margin-top:18px;border-radius:14px 14px 0 0;overflow:hidden;
+    aspect-ratio:16/10;background:#000}
+  .pshot img{width:100%;height:100%;object-fit:cover;display:block}
 
   /* ---------- превью продукта ----------
      Смысл приложения — реакция, влетающая на весь экран. Показать её дешевле,
-     чем описать: гифки уже лежат в репозитории. */
+     чем описать: гифки уже лежат в репозитории. Движется ТОЛЬКО эта карточка. */
   .demo{position:relative;min-width:0}
-  .scr{position:relative;aspect-ratio:16/10;border-radius:20px;overflow:hidden;
-    background:#08090c;border:1px solid var(--line);
-    box-shadow:0 44px 92px -34px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.07)}
+  .scr{position:relative;width:100%;height:100%;overflow:hidden;background:#08090c}
   /* «работа» — нарочно абстрактные строки, а не поддельный скриншот чужой программы */
-  .work{position:absolute;inset:0;padding:clamp(20px,2.6vw,34px);opacity:1;
-    display:flex;flex-direction:column;justify-content:center;gap:clamp(8px,1.1vw,13px);
+  .work{position:absolute;inset:0;padding:clamp(16px,2vw,26px);opacity:1;
+    display:flex;flex-direction:column;justify-content:center;gap:clamp(7px,.9vw,11px);
     transition:opacity .3s ease .08s}
-  .work i{display:block;height:clamp(5px,.62vw,8px);border-radius:999px;
+  .work i{display:block;height:clamp(5px,.55vw,7px);border-radius:999px;
     background:rgba(255,255,255,.085)}
   .work i:nth-child(1){width:62%} .work i:nth-child(2){width:88%}
   .work i:nth-child(3){width:76%} .work i:nth-child(4){width:44%;background:rgba(var(--acc-rgb),.55)}
@@ -213,17 +264,12 @@
     transition:opacity .2s ease,transform .34s cubic-bezier(.2,.75,.25,1)}
   .scr.hit>img{opacity:1;transform:none;
     transition:opacity .16s ease,transform .32s cubic-bezier(.14,.85,.3,1)}
-  .tag{position:absolute;left:14px;bottom:14px;z-index:2;display:flex;align-items:center;gap:8px;
+  .tag{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;align-items:center;gap:8px;
     background:rgba(8,9,12,.78);border:1px solid var(--line);border-radius:999px;
-    padding:7px 13px;font-size:var(--t8);font-weight:510;letter-spacing:-.012em;color:var(--ink)}
+    padding:6px 12px;font-size:var(--t9);font-weight:510;letter-spacing:-.012em;color:var(--ink)}
   .tag i{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none;
     transition:background .25s ease}
   .scr.hit .tag i{background:var(--bad)}
-
-  @media (max-width:880px){
-    .hero{grid-template-columns:1fr;gap:32px;max-width:35rem;padding:36px 24px}
-    .mark{width:38px;margin-bottom:20px}
-  }
 
   /* ---------- верхняя строка ---------- */
   /* Шапка видна всегда — иначе Профиль, График и Реакция недоступны, пока не
@@ -601,7 +647,17 @@
   .chips button[aria-pressed="true"]{background:var(--ink);color:#000;border-color:transparent}
   .chips button:active{opacity:.55;transition:opacity var(--press)}
 
-  .shelf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .shelf{display:grid;gap:8px;
+    /* Колонка не уже 300 px — плитки крупные. На узком экране min() роняет
+       требование до 46 %, и вместо одной огромной плитки получается две. */
+    grid-template-columns:repeat(auto-fill,minmax(min(300px,46%),1fr))}
+  /* Только «Реакция» расходится во всю ширину: полка — это витрина, ей нужен размах.
+     Остальные разделы (График, Профиль, Аккаунт) остаются в своей мере. */
+  #react .stWrap{max-width:none}
+  /* Шапку не сужаем: крестик должен стоять у правого края экрана,
+     а не посреди пустоты по краю текстовой колонки. */
+  #react .note,#react .card{max-width:47.5rem}
+  #react .tile span{font-size:var(--t8)}
   /* Смена категории заменяет всю сетку разом — плитки телепортировались.
      @starting-style даёт появление без единой строчки JS: браузер сам берёт
      начальное состояние для только что вставленного элемента.
@@ -724,10 +780,10 @@
   #task:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
 
   /* ---------- страница статистики ---------- */
-  #stats,#prof,#acc,#frn,#react{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
+  #stats,#prof,#acc,#frn,#react,#pEdit{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
     opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .26s ease,visibility 0s linear .26s}
-  #stats.on,#prof.on,#acc.on,#frn.on,#react.on{opacity:1;visibility:visible;pointer-events:auto;
+  #stats.on,#prof.on,#acc.on,#frn.on,#react.on,#pEdit.on{opacity:1;visibility:visible;pointer-events:auto;
     transition:opacity .28s ease}
   .stWrap{max-width:47.5rem;margin:0 auto;padding:28px 24px 56px}
   .stHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
@@ -747,11 +803,6 @@
   .pAva{cursor:pointer;transition:filter .18s ease}
   .pAva:hover{filter:brightness(1.12)}
   .pAva:active{transform:scale(.96);transition:transform var(--press)}
-  .pName{font-family:inherit;font-size:var(--t4);font-weight:600;letter-spacing:-.022em;
-    color:var(--ink);background:none;border:0;border-bottom:1px solid var(--line);
-    padding:5px 2px;width:100%;max-width:320px;outline:none;transition:border-color .18s}
-  .pName:focus{border-color:var(--acc)}
-  .pName::placeholder{color:var(--mut2)}
   /* Заголовок раздела внутри полноэкранного слоя — тот же голос, что у заголовков
      в панели: обычный регистр, приглушённый, без разрядки. */
   .lbl{font-size:var(--t8);font-weight:510;letter-spacing:-.004em;color:var(--mut);
@@ -759,6 +810,61 @@
 
   /* Одна главная цифра вместо шести равных: шесть одинаковых чисел означают,
      что ни одно не важно. Кегли остаются в шкале — clamp между --t2 и --t1. */
+  .pWho{min-width:0}
+  /* Имя теперь надпись, а не поле: правки живут за кнопкой «Редактировать».
+     Роман: «поменять имя не просто нажать на строку, а сделать 2 кнопки». */
+  .pName{display:block;font-size:var(--t4);font-weight:600;letter-spacing:-.022em;
+    color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pName.empty{color:var(--mut2);font-weight:500}
+  .pHandle{margin-top:2px;font-size:var(--t7);color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pBio{margin:14px 0 0;font-size:var(--t7);line-height:1.45;color:var(--ink);
+    white-space:pre-wrap;max-width:34rem}
+  .pMeta{margin:9px 0 0;font-size:var(--t8);color:var(--mut)}
+  .pActs{margin-top:18px}
+
+  /* Поле ввода внутри строки карточки: справа, как значение у .pick */
+  .tin{flex:1 1 auto;min-width:0;font-family:inherit;font-size:var(--t7);font-weight:450;
+    color:var(--ink);background:none;border:0;outline:none;text-align:right}
+  .tin::placeholder{color:var(--mut2)}
+  /* Поле на всю строку — когда подпись уже стоит заголовком над карточкой */
+  .tin.wide{text-align:left}
+  .tarea{display:block;width:100%;font-family:inherit;font-size:var(--t7);line-height:1.45;
+    color:var(--ink);background:none;border:0;outline:none;resize:none;padding:13px 14px}
+  .tarea::placeholder{color:var(--mut2)}
+
+  /* Выбор пола: строка-кнопка с галочкой справа. Не радиокнопки — в остальном
+     приложении их нет, а строка с отметкой уже знакома по «Своему файлу». */
+  .gsel{width:100%;font-family:inherit;font-size:var(--t7);font-weight:450;color:var(--ink);
+    background:none;border:0;cursor:pointer;text-align:left}
+  .gsel i{flex:none;width:17px;height:17px;border-radius:50%;
+    border:1.5px solid rgba(255,255,255,.28);transition:.16s}
+  .gsel[aria-pressed="true"] i{border-color:var(--acc);background:var(--acc);
+    box-shadow:inset 0 0 0 3.5px #000}
+  .gsel:active{opacity:.55;transition:opacity var(--press)}
+
+  /* Подгонка фото. Кружок-окно рисуется тенью поверх картинки, а не маской:
+     так видно и то, что останется, и то, что уйдёт под обрез. */
+  #pCrop{position:fixed;inset:0;z-index:16;display:grid;place-items:center;
+    background:rgba(0,0,0,.72);opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .2s ease,visibility 0s linear .2s}
+  #pCrop.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .2s ease}
+  .cropBox{width:min(22rem,92vw);padding:20px;border-radius:20px;
+    background:var(--glass);backdrop-filter:blur(24px) saturate(180%);
+    -webkit-backdrop-filter:blur(24px) saturate(180%);
+    border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .cropBox h2{font-size:var(--t6);font-weight:600;letter-spacing:-.01em;
+    color:var(--ink);margin-bottom:14px;text-align:center}
+  .cropView{position:relative;width:100%;aspect-ratio:1;border-radius:14px;
+    overflow:hidden;background:#000;cursor:grab;touch-action:none}
+  .cropView:active{cursor:grabbing}
+  .cropView img{position:absolute;left:0;top:0;transform-origin:0 0;
+    max-width:none;user-select:none;-webkit-user-drag:none}
+  .cropView::after{content:"";position:absolute;inset:0;pointer-events:none;
+    border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.55)}
+  #cropZoom{width:100%;margin:14px 0 2px;accent-color:var(--acc)}
+  .cropBox .acts{margin-top:14px}
+
   .pHero{margin:4px 0 4px}
   .pHero b{display:block;font-size:clamp(var(--t2),7vw,var(--t1));font-weight:620;
     letter-spacing:-.04em;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
@@ -891,7 +997,7 @@
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
       animation-delay:0s!important;transition-duration:.16s!important}
-    .hcol>*,.demo{animation:none}
+    .phero>*,.pcards{animation:none}
     .scr>img{transform:none!important}
     #sheet{transform:none!important;transition:opacity .2s ease!important}
     #wiz{transform:none!important}
@@ -1050,25 +1156,53 @@
 </div>
 <button class="quiet" id="wCam">Показать камеру</button>
 
+<!-- Светлый стартовый экран. Приложение остаётся тёмным: это витрина, а не
+     инструмент. Переход мягкий — #idle гаснет за 0.5 с, белое растворяется
+     в чёрном. Знака внутри НЕТ намеренно: он уже стоит в шапке, а два
+     одинаковых знака на экране — повтор, а не узнаваемость. -->
 <div id="idle">
   <div class="hero">
-    <div class="hcol">
-      <!-- Глаз уехал в шапку: два одинаковых знака на одном экране — это не
-           узнаваемость, а повтор. Заголовку освободилось место. -->
-      <h1>Focus&nbsp;Guard</h1>
-      <p class="lede" id="lede" data-t>Отвели взгляд — и на весь экран влетает <b>то, что вы выбрали сами</b>.
-        Всё считает ваш браузер: ни один кадр не уходит с компьютера.</p>
+    <div class="phero">
+      <h1 data-t>Отвели взгляд — <span class="pmark"><i></i>получите</span> по глазам.</h1>
+      <p class="lede" id="lede" data-t>Камера следит, не отвлеклись ли вы. Отвлеклись — на весь
+        экран влетает <b>то, что вы выбрали сами</b>. Всё считает ваш браузер: ни один кадр
+        не уходит с компьютера.</p>
       <div class="cta">
-        <button id="go">Запустить</button>
-        <span class="perm" data-t><b>Бесплатно, без регистрации, прямо в браузере.</b>
-          Понадобится доступ к камере.</span>
+        <button id="go">Запустить бесплатно</button>
+        <button id="goReact" type="button" class="ghost">Посмотреть реакции</button>
       </div>
+      <span class="perm" data-t><b>Без регистрации, прямо в браузере.</b>
+        Понадобится доступ к камере.</span>
     </div>
-    <div class="demo" aria-hidden="true">
-      <div class="scr" id="scr">
-        <div class="work"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-        <img id="demoImg" alt="">
-        <div class="tag"><i></i><span id="demoTag">взгляд на экране</span></div>
+
+    <!-- Продукт показан трижды, а не один раз: у Notion ощущение живого даёт
+         не анимация (видео там ОДНО на всю страницу), а то, что продукт
+         повторяется куском за куском. Движется при этом только первая
+         карточка — та, где идёт настоящее превью. -->
+    <div class="pcards">
+      <div class="pcard">
+        <p class="plbl">Что будет</p>
+        <h3>Кино на весь экран, а не уведомление.</h3>
+        <div class="pchips"><span class="pchip a" id="cReacts"></span><span class="pchip b">свой файл</span></div>
+        <div class="demo" aria-hidden="true">
+          <div class="scr" id="scr">
+            <div class="work"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <img id="demoImg" alt="">
+            <div class="tag"><i></i><span id="demoTag">взгляд на экране</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pcard">
+        <p class="plbl">Как ловит</p>
+        <h3>Взгляд, поворот головы, телефон в руке.</h3>
+        <div class="pchips"><span class="pchip c">478 точек лица</span></div>
+        <div class="pshot"><img src="reactions/network.jpg" alt="" loading="lazy"></div>
+      </div>
+      <div class="pcard">
+        <p class="plbl">Что считает</p>
+        <h3>Сколько просидели и сколько потеряли.</h3>
+        <div class="pchips"><span class="pchip b">по дням</span><span class="pchip a">за год</span></div>
+        <div class="pshot"><img src="reactions/money.jpg" alt="" loading="lazy"></div>
       </div>
     </div>
   </div>
@@ -1262,14 +1396,13 @@
       <button class="xbtn" data-close="react" title="Закрыть" aria-label="Закрыть">✕</button></div>
     <p class="note">Это влетит на весь экран, когда взгляд уедет. Выберите из готовых
       или подставьте свой файл.</p>
-    <div class="chips" id="rCats" role="group" aria-label="Категории"></div>
-    <div class="shelf" id="rShelf"></div>
-    <p class="lbl">Или своё</p>
     <div class="card">
       <label class="row pick" id="lVid"><span>Свой файл</span>
         <span class="rv" id="nVid">Выбрать…</span>
         <input type="file" id="fVid" accept="video/*,image/gif,image/webp"></label>
     </div>
+    <div class="chips" id="rCats" role="group" aria-label="Категории"></div>
+    <div class="shelf" id="rShelf"></div>
   </div>
 </div>
 
@@ -1278,17 +1411,84 @@
     <div class="stHead"><h1>Профиль</h1>
       <button class="xbtn" data-close="prof" title="Закрыть" aria-label="Закрыть">✕</button></div>
     <div class="pTop">
-      <label class="pAva" id="pAva" title="Поставить фото">—
+      <label class="pAva" id="pAva" title="Изменить фото">—
         <input type="file" id="pFile" accept="image/*" hidden></label>
-      <div style="min-width:0">
-        <input class="pName" id="pName" placeholder="Ваше имя" maxlength="24"
-          autocomplete="off" spellcheck="false">
+      <div class="pWho">
+        <h2 class="pName" id="pNameOut" data-no-t></h2>
+        <p class="pHandle" id="pHandle" data-no-t hidden></p>
         <p class="pSub" id="pSub"></p>
-        <button class="quiet" id="pAvaDel" hidden
-          style="margin:6px 0 0;padding:0;text-align:left">Убрать фото</button>
       </div>
     </div>
+    <p class="pBio" id="pBio" data-no-t hidden></p>
+    <p class="pMeta" id="pMeta" hidden></p>
+    <div class="acts pActs">
+      <button id="pEditBtn">Редактировать</button>
+      <button id="pShareBtn">Поделиться профилем</button>
+    </div>
+    <p class="learn" id="pShareInfo"></p>
     <div id="pBody"></div>
+  </div>
+</div>
+
+<div id="pEdit">
+  <div class="stWrap">
+    <div class="stHead"><h1>Редактировать</h1>
+      <button class="xbtn" id="pEditClose" title="Закрыть" aria-label="Закрыть">✕</button></div>
+
+    <div class="card">
+      <label class="row"><span>Имя</span>
+        <input class="tin" id="eName" maxlength="24" autocomplete="off" spellcheck="false"
+          placeholder="Ваше имя" data-no-t></label>
+      <label class="row"><span>Имя пользователя</span>
+        <input class="tin" id="eUser" maxlength="20" autocomplete="off" spellcheck="false"
+          placeholder="@никнейм" data-no-t></label>
+    </div>
+    <p class="learn" id="eUserInfo"></p>
+
+    <p class="lbl">Биография</p>
+    <div class="card"><textarea id="eBio" class="tarea" maxlength="160" rows="3"
+      placeholder="Пара слов о себе" data-no-t></textarea></div>
+    <p class="learn" id="eBioInfo"></p>
+
+    <p class="lbl">Местоимения</p>
+    <div class="card">
+      <label class="row"><input class="tin wide" id="ePron" maxlength="24" autocomplete="off"
+          placeholder="он/его · она/её · они/их" data-no-t></label>
+    </div>
+
+    <p class="lbl">Пол</p>
+    <div class="card" id="eGender">
+      <button type="button" class="row gsel" data-g="f"><span>Женщина</span><i></i></button>
+      <button type="button" class="row gsel" data-g="m"><span>Мужчина</span><i></i></button>
+      <button type="button" class="row gsel" data-g="nb"><span>Небинарная идентичность</span><i></i></button>
+      <button type="button" class="row gsel" data-g="self"><span>Укажу самостоятельно</span><i></i></button>
+      <label class="row" id="eGenderSelfRow" hidden><span>Свой вариант</span>
+        <input class="tin" id="eGenderSelf" maxlength="30" autocomplete="off"
+          placeholder="как назвать" data-no-t></label>
+      <button type="button" class="row gsel" data-g="none"><span>Предпочитаю не говорить</span><i></i></button>
+    </div>
+
+    <div class="acts" style="grid-template-columns:1fr;margin-top:18px">
+      <button id="eSave" class="primary">Сохранить</button>
+    </div>
+    <div class="acts" style="grid-template-columns:1fr">
+      <button id="pAvaDel" hidden>Убрать фото</button>
+    </div>
+  </div>
+</div>
+
+<!-- Подгонка фото: кружок-окно, картинку можно двигать и приближать.
+     Кадрировать ДО сохранения обязательно — в хранилище уезжает уже готовый
+     квадрат 200 px, исходника мы не держим. -->
+<div id="pCrop" aria-hidden="true">
+  <div class="cropBox" role="dialog" aria-modal="true">
+    <h2>Подвиньте фото</h2>
+    <div class="cropView" id="cropView"><img id="cropImg" alt="" draggable="false"></div>
+    <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" aria-label="Приблизить">
+    <div class="acts">
+      <button id="cropCancel">Отмена</button>
+      <button id="cropOk" class="primary">Готово</button>
+    </div>
   </div>
 </div>
 
@@ -1482,7 +1682,14 @@ const SHUT  = .45;   // насколько — чтобы считать гла�
 const NAMES = ['','очень мягкая','мягкая','обычная','строгая','злая'];
 
 let lm=null, stream=null, running=false, tid=null;
-let lastOkAt=0, okSince=0, boomOn=false;
+let lastOkAt=0, okSince=0, boomOn=false, lostAt=0;
+/* Сколько лицо должно отсутствовать, чтобы считать, что человек ушёл.
+   Замерено 19 сентября: даже на неподвижном, хорошо освещённом лице детектор
+   промахивается примерно на 7 % кадров. Раньше каждый такой промах обнулял
+   okSince, из-за чего lastOkAt не двигался вовсе и таймер отвлечения полз
+   вверх при человеке, сидящем перед экраном. Отсюда «срабатывает на открытых
+   глазах». Человек не успевает выйти за 0,7 с — а детектор моргает постоянно. */
+const GONE_MS = 700;
 let sm={side:null,down:null,head:null,pitch:null,conv:null}, base={side:0,down:0,head:0,pitch:0,shut:0,conv:0};
 let calib=null, fpsN=0, fpsT=0, lastTs=-1, vidURL=null, userImg=false;
 let files=null, sawFace=false, blindFrames=0, onCPU=false, switching=false;
@@ -2210,11 +2417,19 @@ function loop(){
   ctx.clearRect(0,0,cv.width,cv.height);
 
   if(!face){
-    sm.side=sm.down=sm.head=sm.pitch=sm.conv=null;
-    ok=!$('tGone').checked; why='вас нет в кадре';
+    if(!lostAt) lostAt=now;
+    if(now-lostAt >= GONE_MS){
+      /* лица нет уже по-настоящему долго — тогда это событие */
+      sm.side=sm.down=sm.head=sm.pitch=sm.conv=null;
+      ok=!$('tGone').checked; why='вас нет в кадре';
+    } else {
+      /* моргнул детектор, а не человек: метрики не трогаем, таймер не сбиваем */
+      ok=true;
+    }
     // GPU-делегат на части машин не падает, а просто не находит лиц — ловим это и уходим на CPU
     if(!sawFace && !onCPU && !switching && ++blindFrames>30) toCPU();
   } else {
+    lostAt=0;
     sawFace=true; blindFrames=0;
     const m=metrics(res,fi), a=.4;
     // на моргании модель заодно задирает eyeLookDown (глаз уходит под веко),
@@ -2362,7 +2577,7 @@ async function start(){
     files=await FilesetResolver.forVisionTasks(WASM);
     const mk=d=>FaceLandmarker.createFromOptions(files,{baseOptions:{modelAssetPath:MODEL,delegate:d},
       outputFaceBlendshapes:true, runningMode:'VIDEO', numFaces:3});
-    sawFace=false; blindFrames=0; onCPU=false; switching=false; lastTs=-1;
+    sawFace=false; blindFrames=0; onCPU=false; switching=false; lastTs=-1; lostAt=0;
     try{ lm=await mk('GPU'); }catch(e){ onCPU=true; lm=await mk('CPU'); }
 
     btn.textContent='Запрашиваю камеру…';
@@ -2446,19 +2661,35 @@ const REACTS=[
   ['eyeroll','Закатил глаза','judge'],
   ['kanye','Канье усмехается','judge'],
   ['monkey-phone','Обезьяна с телефоном','judge'],
+  ['street-talk','Разговор на улице','judge'],
+  ['elliot-smile','Улыбка Эллиота','judge'],
+  ['hart','Кевин Харт','judge'],
+  ['couch','На диване','judge'],
+  ['wahlberg','Уолберг смеётся','judge'],
+  ['cruise','Растерянный Круз','judge'],
   ['rage','Ярость у зеркала','rage'],
   ['gosling-car','Гослинг в машине','rage'],
   ['homelander','Хоумлендер','rage'],
   ['hulk','Халк','rage'],
+  ['scream','Крик','rage'],
+  ['willsmith','Уилл Смит кричит','rage'],
+  ['head','Хватается за голову','rage'],
   ['shrek','Шрек','sad'],
   ['blade-cry','К плачет','sad'],
   ['blade-k','Бегущий по лезвию','sad'],
   ['norton','Бойцовский клуб','sad'],
+  ['subway','Метро','sad'],
+  ['escalator','Эскалатор','sad'],
+  ['legday','День ног','sad'],
+  ['anime-sunset','Аниме на закате','sad'],
   ['snap','Щелчок','push'],
   ['strange','Доктор Стрэндж','push'],
   ['typing','Печатает','push'],
   ['zoolander','Зуландер','push'],
   ['monkey-laptop','Обезьяна за ноутом','push'],
+  ['carrey','Керри за компьютером','push'],
+  ['network','Социальная сеть','push'],
+  ['hill','Один на холме','push'],
   ['money','Деньги в море','reward'],
   ['gatsby','Тост Гэтсби','reward'],
   ['gatsby-walk','Гэтсби в толпе','reward'],
@@ -2470,7 +2701,14 @@ const REACTS=[
   ['dance','Танец','reward'],
   ['floor','Речь перед залом','reward'],
   ['yacht','Яхта','reward'],
-  ['gosling-gym','Гослинг качается','reward']
+  ['gosling-gym','Гослинг качается','reward'],
+  ['beach','Встреча на берегу','reward'],
+  ['boombox','Бумбокс в автобусе','reward'],
+  ['stark-donut','Старк с пончиком','reward'],
+  ['pool','Вечеринка у бассейна','reward'],
+  ['drake','Дрейк в толпе','reward'],
+  ['vandamme','Ван Дамм','reward'],
+  ['stark-arms','Старк расправил руки','reward']
 ];
 let reactGif=null;
 
@@ -2926,7 +3164,7 @@ $('wCam').addEventListener('click',()=>setCamShown(!camShown));
 /* ---------- меню по шестерёнке ----------
    Раньше шестерёнка открывала настройки напрямую. Разделов стало больше одного,
    поэтому она открывает меню, а настройки — такой же его пункт, как остальные. */
-const LAYERS=['react','prof','acc','frn'];
+const LAYERS=['react','prof','acc','frn','pEdit'];
 const menuOpen = () => $('menu').classList.contains('on');
 function closeMenu(){ $('menu').classList.remove('on'); $('menu').setAttribute('aria-hidden','true'); }
 function openMenu(){ $('menu').classList.add('on'); $('menu').setAttribute('aria-hidden','false'); }
@@ -2997,7 +3235,7 @@ $('menu').addEventListener('click',e=>{
   closeMenu();
   if(b.dataset.go==='settings'){ closeLayers(); closeStats(); openSheet(); return; }
   if(b.dataset.go==='stats'){ closeSheet(); closeLayers(); openStats(); return; }
-  if(b.dataset.go==='prof') drawProfile();
+  if(b.dataset.go==='prof'){ setAva(); paintProfHead(); drawProfile(); }
   if(b.dataset.go==='acc'){ gInit(); gShow(); }
   openLayer(b.dataset.go);
 });
@@ -3012,7 +3250,9 @@ document.addEventListener('click',e=>{
 $('close').addEventListener('click',closeSheet);
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape') return;
-  if(langMenuOpen()) closeLangMenu();
+  if($('pCrop').classList.contains('on')) closeCrop();
+  else if($('pEdit').classList.contains('on')) closeEdit();
+  else if(langMenuOpen()) closeLangMenu();
   else if(menuOpen()) closeMenu();
   else if($('ask').classList.contains('on')) closeAsk();
   else if(boomOn) calm();
@@ -3041,34 +3281,90 @@ function streak(){
 /* Своё фото важнее гугловского: человек поставил его руками. Хранится
    уменьшенным до 200 px в localStorage — туда влезает около 5 МБ на всё,
    а исходник с телефона весит больше этого целиком. */
+const PROFKEY='focusguard.profile';
+/* Пол хранится КОДОМ, а не подписью: подпись переводится, код — нет.
+   Сохрани подпись — и при смене языка выбор перестанет находиться. */
+const GENDERS=[['f','Женщина'],['m','Мужчина'],['nb','Небинарная идентичность'],
+               ['self','Укажу самостоятельно'],['none','Предпочитаю не говорить']];
+function profRead(){
+  let p={}; try{ p=JSON.parse(localStorage.getItem(PROFKEY)||'{}')||{}; }catch(e){}
+  let name=''; try{ name=localStorage.getItem(NKEY)||''; }catch(e){}
+  return {name, user:p.user||'', bio:p.bio||'', pron:p.pron||'',
+          gender:p.gender||'', genderText:p.genderText||''};
+}
+function profWrite(p){
+  try{ localStorage.setItem(NKEY, (p.name||'').trim()); }catch(e){}
+  try{ localStorage.setItem(PROFKEY, JSON.stringify({
+    user:(p.user||'').trim(), bio:(p.bio||'').trim(), pron:(p.pron||'').trim(),
+    gender:p.gender||'', genderText:(p.genderText||'').trim() })); }catch(e){}
+}
+/* Ник чистим сами: собачка в начале лишняя (её рисует интерфейс),
+   пробелы и точки в ссылке ломаются. */
+const cleanUser = v => (v||'').replace(/^@+/,'').replace(/[^A-Za-z0-9_.]/g,'').slice(0,20);
+
 const AVAKEY='focusguard.avatar';
 const avaRead = () => { try{ return localStorage.getItem(AVAKEY)||''; }catch(e){ return ''; } };
 function setAva(){
-  const own=avaRead(), u=gRead(), v=($('pName').value||'').trim();
+  const own=avaRead(), u=gRead(), v=profRead().name;
   const pic = own || (u && u.picture) || '';
   const box=$('pAva'), file=$('pFile');
   box.textContent = pic ? '' : (v ? v[0].toUpperCase() : '—');
   if(pic){ const im=new Image(); im.src=pic; im.alt=''; im.referrerPolicy='no-referrer'; box.appendChild(im); }
   box.appendChild(file);                       // поле выбора живёт внутри — не потерять при перерисовке
   const del=$('pAvaDel'); if(del) del.hidden = !own;
+  const out=$('pNameOut');
+  if(out){
+    out.textContent = v || t('Ваше имя');
+    out.classList.toggle('empty', !v);
+  }
 }
 /* Ужимаем до квадрата 200 px «по обрезке», как object-fit:cover, и переводим
    в jpeg — иначе фото с телефона переполнит хранилище и вместе с ним слетят
    настройки, статистика и журнал. */
-function avaFromFile(f){
+/* Раньше фото молча резалось по центру. Теперь человек сам двигает и приближает:
+   в хранилище уезжает готовый квадрат 200 px, исходника мы не держим,
+   поэтому кадрировать надо ДО сохранения — переделать потом будет не из чего. */
+let crop=null;                                  // {url, im, z, ox, oy, V}
+function cropLayout(){
+  if(!crop) return;
+  const V=crop.V, k0=Math.max(V/crop.im.naturalWidth, V/crop.im.naturalHeight);
+  const k=k0*crop.z, w=crop.im.naturalWidth*k, h=crop.im.naturalHeight*k;
+  /* Окно всегда должно быть закрыто картинкой — иначе в кружке появится дыра */
+  const mx=Math.max(0,(w-V)/2), my=Math.max(0,(h-V)/2);
+  crop.ox=Math.max(-mx, Math.min(mx, crop.ox));
+  crop.oy=Math.max(-my, Math.min(my, crop.oy));
+  crop.k=k; crop.w=w; crop.h=h;
+  $('cropImg').style.transform =
+    `translate(${(V-w)/2+crop.ox}px,${(V-h)/2+crop.oy}px) scale(${k})`;
+  $('cropImg').style.width = crop.im.naturalWidth+'px';
+}
+function openCrop(f){
   const url=URL.createObjectURL(f), im=new Image();
   im.onload=()=>{
-    const S=200, c=document.createElement('canvas'); c.width=c.height=S;
-    const x=c.getContext('2d');
-    const k=Math.max(S/im.width, S/im.height), w=im.width*k, h=im.height*k;
-    x.drawImage(im, (S-w)/2, (S-h)/2, w, h);
-    URL.revokeObjectURL(url);
-    try{ localStorage.setItem(AVAKEY, c.toDataURL('image/jpeg', 0.82)); }
-    catch(e){ alert('Не удалось сохранить фото — в браузере кончилось место.'); }
-    setAva();
+    crop={url, im, z:1, ox:0, oy:0, V:$('cropView').clientWidth||300};
+    $('cropImg').src=url; $('cropZoom').value=1;
+    $('pCrop').classList.add('on'); $('pCrop').setAttribute('aria-hidden','false');
+    crop.V=$('cropView').clientWidth||300;
+    cropLayout();
   };
-  im.onerror=()=>{ URL.revokeObjectURL(url); alert('Это не похоже на картинку.'); };
+  im.onerror=()=>{ URL.revokeObjectURL(url); alert(t('Это не похоже на картинку.')); };
   im.src=url;
+}
+function closeCrop(){
+  if(crop){ URL.revokeObjectURL(crop.url); crop=null; }
+  $('cropImg').removeAttribute('src');
+  $('pCrop').classList.remove('on'); $('pCrop').setAttribute('aria-hidden','true');
+  $('pFile').value='';                          // иначе тот же файл второй раз не выберется
+}
+function cropSave(){
+  if(!crop) return;
+  const S=200, c=document.createElement('canvas'); c.width=c.height=S;
+  const x=c.getContext('2d'), m=S/crop.V;       // окно показа → холст
+  x.drawImage(crop.im, (crop.V-crop.w)/2*m + crop.ox*m, (crop.V-crop.h)/2*m + crop.oy*m,
+              crop.w*m, crop.h*m);
+  try{ localStorage.setItem(AVAKEY, c.toDataURL('image/jpeg', 0.82)); }
+  catch(e){ alert(t('Не удалось сохранить фото — в браузере кончилось место.')); }
+  closeCrop(); setAva();
 }
 function drawProfile(){
   const all=allDays(), keys=Object.keys(all);
@@ -3126,12 +3422,106 @@ function drawProfile(){
     '<i data-l="3"></i><i data-l="4"></i>больше</div>';
 }
 
-try{ $('pName').value = localStorage.getItem(NKEY)||''; }catch(e){}
-setAva();
-$('pFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) avaFromFile(f); e.target.value=''; });
+setAva(); paintProfHead();
+
+/* ---------- профиль: шапка, правка, ссылка ---------- */
+function paintProfHead(){
+  const p=profRead();
+  $('pHandle').textContent = p.user ? '@'+p.user : '';
+  $('pHandle').hidden = !p.user;
+  $('pBio').textContent = p.bio;
+  $('pBio').hidden = !p.bio;
+  /* Местоимения и пол — одной строкой через точку: две отдельные строки
+     под именем читаются как анкета, а не как подпись. */
+  const g = p.gender==='self' ? p.genderText
+          : p.gender ? t((GENDERS.find(x=>x[0]===p.gender)||[])[1]||'') : '';
+  const bits=[p.pron, g].filter(Boolean);
+  $('pMeta').textContent = bits.join(' · ');
+  $('pMeta').hidden = !bits.length;
+}
+
+function openEdit(){
+  const p=profRead();
+  $('eName').value=p.name; $('eUser').value=p.user ? '@'+p.user : '';
+  $('eBio').value=p.bio;   $('ePron').value=p.pron;
+  $('eGenderSelf').value=p.genderText;
+  paintGender(p.gender);
+  closeLayers(); $('pEdit').classList.add('on');
+}
+function paintGender(g){
+  [...$('eGender').querySelectorAll('.gsel')]
+    .forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.g===g)));
+  $('eGenderSelfRow').hidden = g!=='self';
+  $('eGender').dataset.value = g||'';
+}
+$('eGender').addEventListener('click',e=>{
+  const b=e.target.closest('.gsel'); if(!b) return;
+  /* Повторное нажатие снимает выбор: иначе указанный однажды пол не убрать */
+  paintGender($('eGender').dataset.value===b.dataset.g ? '' : b.dataset.g);
+  if($('eGender').dataset.value==='self') $('eGenderSelf').focus();
+});
+$('eUser').addEventListener('blur',()=>{
+  const v=cleanUser($('eUser').value); $('eUser').value = v ? '@'+v : '';
+});
+function closeEdit(){
+  $('pEdit').classList.remove('on');
+  $('prof').classList.add('on');                 // вернуть туда, откуда пришли
+  setAva(); paintProfHead(); drawProfile();
+}
+$('eSave').addEventListener('click',()=>{
+  const g=$('eGender').dataset.value||'';
+  profWrite({ name:$('eName').value, user:cleanUser($('eUser').value),
+    bio:$('eBio').value, pron:$('ePron').value,
+    gender:g, genderText:g==='self' ? $('eGenderSelf').value : '' });
+  closeEdit();
+});
+$('pEditBtn').addEventListener('click', openEdit);
+$('pEditClose').addEventListener('click', closeEdit);
+
+/* Ссылкой можно поделиться и без сервера: имя, ник и подпись уезжают в сам адрес.
+   Открывший увидит их на стартовом экране. Настоящих подписок это не даёт —
+   для них нужен сервер, которого у приложения нет. */
+function profileLink(){
+  const p=profRead(), u=new URL(location.href);
+  u.hash=''; u.search='';
+  const pack={n:p.name, u:p.user, b:p.bio, p:p.pron,
+              g:p.gender==='self' ? p.genderText : p.gender};
+  const json=JSON.stringify(Object.fromEntries(Object.entries(pack).filter(([,v])=>v)));
+  u.hash = 'p=' + encodeURIComponent(btoa(unescape(encodeURIComponent(json))));
+  return u.toString();
+}
+$('pShareBtn').addEventListener('click', async ()=>{
+  const link=profileLink();
+  try{
+    if(navigator.share){ await navigator.share({url:link}); return; }
+    await navigator.clipboard.writeText(link);
+    $('pShareInfo').textContent = t('Ссылка на профиль скопирована.');
+  }catch(e){
+    /* Отказ от «Поделиться» — это не ошибка, человек просто передумал */
+    if(e && e.name==='AbortError') return;
+    $('pShareInfo').textContent = link;
+  }
+});
+
+$('pFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) openCrop(f); });
 $('pAvaDel').addEventListener('click',()=>{ try{ localStorage.removeItem(AVAKEY); }catch(e){} setAva(); });
-$('pName').addEventListener('input',()=>{ setAva();
-  try{ localStorage.setItem(NKEY, $('pName').value.trim()); }catch(e){} });
+
+/* Подгонка фото: тянем мышью или пальцем, ползунок приближает */
+$('cropZoom').addEventListener('input',e=>{ if(!crop) return;
+  crop.z=+e.target.value; cropLayout(); });
+{
+  const view=$('cropView'); let drag=null;
+  view.addEventListener('pointerdown',e=>{ if(!crop) return;
+    drag={x:e.clientX, y:e.clientY, ox:crop.ox, oy:crop.oy};
+    view.setPointerCapture(e.pointerId); });
+  view.addEventListener('pointermove',e=>{ if(!drag||!crop) return;
+    crop.ox=drag.ox+(e.clientX-drag.x); crop.oy=drag.oy+(e.clientY-drag.y); cropLayout(); });
+  const stop=()=>{ drag=null; };
+  view.addEventListener('pointerup',stop); view.addEventListener('pointercancel',stop);
+}
+$('cropCancel').addEventListener('click', closeCrop);
+$('cropOk').addEventListener('click', cropSave);
+$('pCrop').addEventListener('click',e=>{ if(e.target===$('pCrop')) closeCrop(); });
 
 /* ---------- аккаунт: данные целиком ----------
    Сервера нет, поэтому «перенести на другой компьютер» = файл. Забираем и кладём
@@ -3211,9 +3601,9 @@ function gDone(res){
     const p=jwtBody(res.credential);
     const u={name:p.name||'', email:p.email||'', picture:p.picture||'', sub:p.sub||''};
     try{ localStorage.setItem(GKEY, JSON.stringify(u)); }catch(e){}
-    if(u.name && !($('pName').value||'').trim()){       // имя подставляем, но не затираем своё
-      $('pName').value=u.name;
+    if(u.name && !profRead().name){                     // имя подставляем, но не затираем своё
       try{ localStorage.setItem(NKEY, u.name); }catch(e){}
+      setAva(); paintProfHead();
     }
     $('gNote').textContent='';
     gShow();
@@ -3288,6 +3678,14 @@ function demoStop(){
   $('scr').classList.remove('hit'); $('demoTag').textContent='взгляд на экране';
   $('demoImg').removeAttribute('src');
 }
+{ /* Число реакций не пишем в разметку: оно устареет при первом же добавлении.
+     Берём длину REACTS и склоняем уже переведённым plural(). */
+  const c = $('cReacts');
+  if(c) c.textContent = plural(REACTS.length,'реакция','реакции','реакций'); }
+
+/* «Посмотреть реакции» ведёт туда же, куда пункт меню: одна дорога, не две. */
+$('goReact').addEventListener('click',()=>{ openLayer('react'); });
+
 demoStep();
 
 /* ---------- друзья ---------- */
