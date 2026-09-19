@@ -26,16 +26,48 @@
 <meta name="twitter:image" content="https://roman-avilov.github.io/focus-guard/preview.jpg">
 <style>
   :root{
-    --ok:#30d158; --warn:#ff9f0a; --bad:#ff453a; --acc:#0a84ff;
-    --ink:#f5f5f7; --mut:#8e8e93; --mut2:#6e6e73;
+    --ok:#30d158; --warn:#ff9f0a; --bad:#ff453a;
+    /* Акцент. Системный фиолетовый Apple: контраст 5.96:1 на чёрном и ни одного
+       столкновения с занятыми оттенками (зелёный — норма, оранжевый — внимание,
+       красный — опасно). Синий #0a84ff читался как встроенная утилита системы.
+       --acc-rgb нужен для полупрозрачных подложек: раньше синий был вписан
+       в одиннадцати местах руками и переменную не подхватывал. Теперь смена
+       акцента — правка ровно двух строк. */
+    --acc:#0a84ff; --acc-rgb:10,132,255;
+    --ink:#f5f5f7; --mut:#8e8e93;
+    /* #6e6e73 давал 4.14:1 на чёрном при норме WCAG AA 4.5 — и именно им набран
+       весь мелкий пояснительный текст, включая строку «За что ловит». 4.65:1. */
+    --mut2:#76767b;
     --glass:rgba(10,13,18,.58); --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.06);
     --spring:cubic-bezier(.32,.72,0,1);       /* мягкий выход, без перелёта */
     --ease-out:cubic-bezier(.23,1,.32,1);     /* сильный ease-out для появления */
     --press:110ms cubic-bezier(.25,.1,.25,1); /* отклик на нажатие — почти мгновенный */
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+
+    /* Шкала кеглей в rem: 1rem = системный размер шрифта, по умолчанию 16px.
+       Человек увеличил шрифт в настройках — интерфейс вырос вместе с ним.
+       Значения в комментариях — сколько это в пикселях при обычных настройках.
+       НОВЫЙ КЕГЕЛЬ БРАТЬ ТОЛЬКО ОТСЮДА: свободных чисел в оформлении больше нет. */
+    --t1:4.125rem;   /* 66   */
+    --t2:1.875rem;   /* 30   */
+    --t3:1.625rem;   /* 26   */
+    --t4:1.4375rem;  /* 23   */
+    --t5:1.25rem;    /* 20   */
+    --t6:1.0625rem;  /* 17   */
+    --t7:.875rem;    /* 14   */
+    --t8:.78125rem;  /* 12.5 */
+    --t9:.65625rem;  /* 10.5 */
+
     font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Inter,sans-serif;
     font-optical-sizing:auto;
   }
   *{margin:0;padding:0;box-sizing:border-box}
+  /* Атрибут hidden прячет элемент через display:none в стилях браузера, и ЛЮБОЕ
+     наше display: его перебивает. У .sw стоит flex, у #gBox — grid, поэтому
+     hidden на них молча не работал: «Глаза закрыты» оставались на экране,
+     а блок входа через Google показывался при пустом Client ID.
+     Проверять надо не наличие атрибута, а offsetParent элемента. */
+  [hidden]{display:none!important}
   html,body{height:100%;overflow:hidden}
   body{background:#04060a;color:var(--ink);-webkit-font-smoothing:antialiased}
   /* нажатие отзывается сразу: без 300 мс задержки тапа и без серой подсветки */
@@ -52,76 +84,150 @@
     background:radial-gradient(1100px 620px at 50% 42%,rgba(4,6,10,.30),rgba(4,6,10,.88));}
   #veil.on{opacity:1}
 
+  /* ---------- рабочий экран ----------
+     Пока приложение следит, человек работает в ДРУГОМ окне и на эту вкладку не
+     смотрит. Значит экран сделан для того, кто на него не смотрит, — а когда он
+     всё-таки переключится, ему нужны не приборы, а один ответ: сколько я уже
+     сижу. Поэтому камера по умолчанию закрыта: собственное лицо во весь экран
+     отвлекает, льстит редко и неловко при демонстрации экрана.
+     Приборы (сетка точек, шкалы, уголки) — под кнопкой «Показать камеру». */
+  #work{position:fixed;inset:0;z-index:4;background:#04060a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:0;text-align:center;padding:24px;
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .4s ease,visibility 0s linear .4s}
+  #work.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .45s ease}
+  #wTask{font-size:var(--t6);color:var(--mut);letter-spacing:-.008em;margin-bottom:18px;
+    max-width:32ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #wTime{font-size:clamp(var(--t2),11vw,var(--t1));font-weight:620;letter-spacing:-.045em;
+    line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+  #wLabel{margin-top:11px;font-size:var(--t6);color:var(--mut);letter-spacing:-.008em}
+  #wSub{margin-top:30px;font-size:var(--t7);color:var(--mut2);letter-spacing:-.006em}
+  /* Кнопка живёт вне #work: спрятав рабочий экран ради камеры, мы спрятали бы
+     и саму кнопку возврата. */
+  #wCam{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;z-index:8;margin:0;
+    opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .35s ease,visibility 0s linear .35s}
+  #wCam.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .35s ease}
+
   /* ---------- стартовый экран ----------
-     Ведёт типографика, а не свечение: крупное имя с плотным трекингом, одна строка
-     сути, одно действие и три честные цифры внизу. Никаких цветных ореолов. */
-  #idle{position:fixed;inset:0;z-index:12;display:grid;place-items:center;
+     Две колонки: слева слова, справа сам продукт — превью, где реакция вваливается
+     в кадр тем же движением, что и в приложении. Крупное имя с плотным трекингом,
+     никаких цветных ореолов. Трёх цифр внизу больше нет: «478 точек лица» ничего
+     не объясняло, а раскладка «заголовок + подзаголовок + ряд цифр» подходит
+     любому продукту и потому читается как сгенерированная. */
+  /* flex + margin:auto, а не place-items:center: при центрировании гридом
+     содержимое выше экрана обрезается сверху и до него не доскроллить. */
+  #idle{position:fixed;inset:0;z-index:12;display:flex;overflow-y:auto;
     background:#000;transition:opacity .5s ease}
-  #idle.gone{opacity:0;pointer-events:none}
+  /* visibility обязательна: без неё анимированный webp превью продолжает
+     крутиться под opacity:0 — рядом с детекцией это отнятые кадры. */
+  #idle.gone{opacity:0;pointer-events:none;visibility:hidden;
+    transition:opacity .5s ease,visibility 0s linear .5s}
   #idle::before{content:"";position:absolute;inset:0;pointer-events:none;
     background:radial-gradient(1180px 620px at 50% 24%,rgba(255,255,255,.052),transparent 68%)}
 
-  .hero{position:relative;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;text-align:center;padding:40px 32px}
-  .hero>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
-  .hero .mark{animation-delay:.02s} #idle h1{animation-delay:.08s}
-  .lede{animation-delay:.15s} .cta{animation-delay:.22s} .facts{animation-delay:.3s}
+  /* Две колонки: слева слова, справа сам продукт. Раньше здесь была
+     центрованная колонка с тремя цифрами — самая шаблонная раскладка, какая
+     бывает: подставь другое название, и ничего не изменится. */
+  .hero{position:relative;margin:auto;display:grid;align-items:center;
+    grid-template-columns:minmax(0,1fr) minmax(0,1.04fr);
+    gap:clamp(36px,5vw,76px);width:100%;max-width:72.5rem;
+    padding:48px clamp(24px,5vw,56px);text-align:left}
+  .hcol>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
+  .hcol .mark{animation-delay:.02s} #idle h1{animation-delay:.08s}
+  .lede{animation-delay:.15s} .cta{animation-delay:.22s}
+  .demo{animation:rise .74s cubic-bezier(.22,.68,0,1) both .28s}
   @keyframes rise{from{opacity:0;transform:translateY(14px)}}
 
-  .mark{width:58px;height:auto;margin-bottom:30px}
-  #idle h1{font-size:clamp(46px,7.8vw,102px);font-weight:600;letter-spacing:-.045em;
+  .mark{width:44px;height:auto;margin-bottom:24px;display:block}
+  #idle h1{font-size:clamp(2.5rem,5.6vw,4.5rem);font-weight:600;letter-spacing:-.045em;
     line-height:.95;color:var(--ink)}
-  /* text-wrap:balance — иначе центрованный абзац рвётся «лесенкой» с одиноким словом */
-  .lede{margin-top:24px;max-width:34ch;color:var(--mut);text-wrap:balance;
-    font-size:clamp(16px,1.42vw,19px);line-height:1.58;letter-spacing:-.011em}
+  .lede{margin-top:21px;max-width:40ch;color:var(--mut);text-wrap:pretty;
+    font-size:clamp(var(--t6),1.35vw,var(--t5));line-height:1.6;letter-spacing:-.011em}
   .lede b{color:var(--ink);font-weight:500}
-  .lede.sum{max-width:40ch;color:var(--mut);font-size:17px;line-height:1.8}
+  .lede.sum{max-width:40ch;color:var(--mut);font-size:var(--t6);line-height:1.8}
   .lede.sum b{color:var(--ink);font-weight:590;font-variant-numeric:tabular-nums}
-  .cta{margin-top:42px;display:flex;flex-direction:column;align-items:center;gap:15px}
-  #go{font:inherit;font-size:17px;font-weight:590;letter-spacing:-.012em;border:0;
+  .cta{margin-top:34px;display:flex;flex-direction:column;align-items:flex-start;gap:14px}
+  #go{font:inherit;font-size:var(--t6);font-weight:590;letter-spacing:-.012em;border:0;
     border-radius:999px;padding:17px 52px;background:var(--ink);color:#000;cursor:pointer;
     transition:transform .2s var(--spring),box-shadow .2s ease,opacity .18s}
   #go:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 20px 48px -20px rgba(245,245,247,.75)}
   #go:active:not(:disabled){transform:translateY(-1px) scale(.965);transition:transform var(--press)}
   #go:disabled{opacity:.38;cursor:default;transform:none;box-shadow:none}
-  .perm{font-size:12.5px;letter-spacing:-.004em;color:var(--mut2)}
+  .perm{font-size:var(--t8);letter-spacing:-.004em;color:var(--mut2);max-width:34ch;line-height:1.55}
+  /* Главное в строке — снятие сомнений, оговорка про камеру идёт следом и тише */
+  .perm b{color:var(--mut);font-weight:450}
 
-  .facts{display:flex;justify-content:center;gap:clamp(34px,7vw,88px);
-    margin-top:68px;padding-top:26px;width:100%;max-width:560px;
-    border-top:1px solid rgba(255,255,255,.10)}
-  .facts div{display:flex;flex-direction:column;align-items:center;gap:5px}
-  .facts b{font-size:20px;font-weight:590;letter-spacing:-.022em;color:var(--ink);
-    font-variant-numeric:tabular-nums}
-  .facts span{font-size:12.5px;color:var(--mut);letter-spacing:-.003em}
+  /* ---------- превью продукта ----------
+     Смысл приложения — реакция, влетающая на весь экран. Показать её дешевле,
+     чем описать: гифки уже лежат в репозитории. */
+  .demo{position:relative;min-width:0}
+  .scr{position:relative;aspect-ratio:16/10;border-radius:20px;overflow:hidden;
+    background:#08090c;border:1px solid var(--line);
+    box-shadow:0 44px 92px -34px rgba(0,0,0,.95),inset 0 1px 0 rgba(255,255,255,.07)}
+  /* «работа» — нарочно абстрактные строки, а не поддельный скриншот чужой программы */
+  .work{position:absolute;inset:0;padding:clamp(20px,2.6vw,34px);opacity:1;
+    display:flex;flex-direction:column;justify-content:center;gap:clamp(8px,1.1vw,13px);
+    transition:opacity .3s ease .08s}
+  .work i{display:block;height:clamp(5px,.62vw,8px);border-radius:999px;
+    background:rgba(255,255,255,.085)}
+  .work i:nth-child(1){width:62%} .work i:nth-child(2){width:88%}
+  .work i:nth-child(3){width:76%} .work i:nth-child(4){width:44%;background:rgba(var(--acc-rgb),.55)}
+  .work i:nth-child(5){width:83%} .work i:nth-child(6){width:69%}
+  .work i:nth-child(7){width:36%}
+  .scr.hit .work{opacity:0;transition:opacity .18s ease}
+  /* тот же «штамп», что и на настоящем экране реакции: вваливается, а не проявляется */
+  .scr>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    opacity:0;transform:scale(1.16);
+    transition:opacity .2s ease,transform .34s cubic-bezier(.2,.75,.25,1)}
+  .scr.hit>img{opacity:1;transform:none;
+    transition:opacity .16s ease,transform .32s cubic-bezier(.14,.85,.3,1)}
+  .tag{position:absolute;left:14px;bottom:14px;z-index:2;display:flex;align-items:center;gap:8px;
+    background:rgba(8,9,12,.78);border:1px solid var(--line);border-radius:999px;
+    padding:7px 13px;font-size:var(--t8);font-weight:510;letter-spacing:-.012em;color:var(--ink)}
+  .tag i{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none;
+    transition:background .25s ease}
+  .scr.hit .tag i{background:var(--bad)}
+
+  @media (max-width:880px){
+    .hero{grid-template-columns:1fr;gap:32px;max-width:35rem;padding:36px 24px}
+    .mark{width:38px;margin-bottom:20px}
+  }
 
   /* ---------- верхняя строка ---------- */
+  /* Шапка видна всегда — иначе Профиль, График и Реакция недоступны, пока не
+     нажал «Запустить», а смотреть их логично и до запуска. Показана при этом
+     ОДНА шестерёнка: приборы (статус, перерыв, занятие, кадры) появляются
+     вместе со слежением. Место они занимают всегда, поэтому шестерёнка
+     не прыгает при запуске. */
   #bar{position:fixed;top:0;left:0;right:0;z-index:6;display:flex;align-items:center;gap:10px;
-    padding:16px 18px;opacity:0;transition:opacity .4s ease;pointer-events:none}
-  #bar.on{opacity:1}
+    padding:16px 18px;pointer-events:none}
+  #bar > *:not(#gear){opacity:0;pointer-events:none;transition:opacity .35s ease}
+  #bar.on > *:not(#gear){opacity:1;pointer-events:auto}
   .chip{display:flex;align-items:center;gap:8px;background:var(--glass);
     backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);
     border:1px solid var(--line);border-radius:999px;
-    padding:8px 14px;font-size:12.5px;font-weight:510;letter-spacing:-.012em}
+    padding:8px 14px;font-size:var(--t8);font-weight:510;letter-spacing:-.012em}
   .dot{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none;transition:.25s}
   .dot.ok{background:var(--ok);box-shadow:0 0 0 4px rgba(48,209,88,.14)}
   .dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(255,159,10,.16)}
   .dot.bad{background:var(--bad);box-shadow:0 0 0 4px rgba(255,69,58,.18);animation:pulse 1.1s infinite}
-  .dot.cal{background:var(--acc);box-shadow:0 0 0 4px rgba(10,132,255,.16);animation:pulse 1.1s infinite}
+  .dot.cal{background:var(--acc);box-shadow:0 0 0 4px rgba(var(--acc-rgb),.16);animation:pulse 1.1s infinite}
   @keyframes pulse{50%{opacity:.35}}
-  #fps{margin-left:auto;font:10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut2);
+  #fps{margin-left:auto;font-family:var(--mono);font-size:var(--t9);line-height:1;color:var(--mut2);
     background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
     border:1px solid var(--line2);padding:7px 10px;border-radius:999px;
     font-variant-numeric:tabular-nums}
   /* кнопка «Перерыв» живёт в шапке: когда надо отойти — надо мгновенно */
-  #pause{pointer-events:auto;font:inherit;font-size:12.5px;font-weight:510;letter-spacing:-.012em;
+  #pause{pointer-events:auto;font:inherit;font-size:var(--t8);font-weight:510;letter-spacing:-.012em;
     color:var(--ink);background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
     -webkit-backdrop-filter:blur(18px) saturate(180%);border:1px solid var(--line);
     border-radius:999px;padding:8px 14px;cursor:pointer;flex:none;
     transition:background .18s,border-color .18s,color .18s,transform var(--press)}
   #pause:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
   #pause:active{transform:scale(.95)}
-  #pause.on{background:rgba(10,132,255,.9);border-color:transparent;color:#fff}
-  #pause.on:hover{background:rgba(10,132,255,1)}
+  #pause.on{background:rgba(var(--acc-rgb),.9);border-color:transparent;color:#fff}
+  #pause.on:hover{background:rgba(var(--acc-rgb),1)}
 
   #gear{pointer-events:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
     background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
@@ -135,16 +241,22 @@
   /* Меню по шестерёнке. Приложение переросло одну панель настроек: появились
      профиль и данные, и шестерёнка стала входом в них, а не сразу настройками.
      Выезжает из своего угла (transform-origin) — так видно, откуда оно взялось. */
-  #menu{position:fixed;z-index:11;top:58px;right:18px;min-width:208px;padding:5px;
-    background:var(--glass);backdrop-filter:blur(24px) saturate(180%);
-    -webkit-backdrop-filter:blur(24px) saturate(180%);
+  #menu{position:fixed;z-index:11;top:58px;right:18px;min-width:13rem;padding:5px;
+    background:var(--glass);backdrop-filter:blur(2px) saturate(120%);
+    -webkit-backdrop-filter:blur(2px) saturate(120%);
     border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 44px rgba(0,0,0,.6);
     transform-origin:100% 0;transform:scale(.92);opacity:0;visibility:hidden;pointer-events:none;
-    transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.3,1),visibility 0s linear .18s}
+    transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.3,1),
+      backdrop-filter .18s ease,-webkit-backdrop-filter .18s ease,visibility 0s linear .18s}
+  /* Размытие нарастает вместе с масштабом: стекло должно ПРИХОДИТЬ как материал,
+     а не появляться уже готовым (apple-design, «Materialize, don't just fade»).
+     Поверхность маленькая — 208×148, на детекцию это не влияет. */
   #menu.on{opacity:1;transform:none;visibility:visible;pointer-events:auto;
-    transition:opacity .14s ease,transform .2s cubic-bezier(.14,.85,.3,1)}
+    backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);
+    transition:opacity .14s ease,transform .2s cubic-bezier(.14,.85,.3,1),
+      backdrop-filter .22s ease,-webkit-backdrop-filter .22s ease}
   #menu button{display:flex;align-items:center;gap:11px;width:100%;
-    font-family:inherit;font-size:14px;font-weight:450;letter-spacing:-.008em;
+    font-family:inherit;font-size:var(--t7);font-weight:450;letter-spacing:-.008em;
     color:var(--ink);background:none;border:0;border-radius:10px;
     padding:9px 10px;cursor:pointer;text-align:left;transition:background .15s ease}
   #menu button:hover{background:rgba(255,255,255,.1)}
@@ -168,7 +280,7 @@
 
   #gauges{position:absolute;left:28px;bottom:58px;display:flex;flex-direction:column;gap:7px}
   .g{display:flex;align-items:center;gap:9px;
-     font:10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.09em;
+     font-family:var(--mono);font-size:var(--t9);line-height:1;letter-spacing:.09em;
      text-shadow:0 1px 6px rgba(0,0,0,.9)}
   .gl{width:56px;color:rgba(255,255,255,.5)}
   .gt{position:relative;width:88px;height:3px;background:rgba(255,255,255,.13);border-radius:2px;
@@ -181,13 +293,13 @@
   .gv.over{color:var(--bad)}
 
   #headUpNote{position:absolute;left:28px;bottom:42px;opacity:0;pointer-events:none;
-    font:10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.12em;
+    font-family:var(--mono);font-size:var(--t9);line-height:1;letter-spacing:.12em;
     color:var(--acc);text-shadow:0 1px 6px rgba(0,0,0,.9);transition:opacity .22s ease}
   #headUpNote.on{opacity:1}
   #sess{position:absolute;right:28px;bottom:58px;display:flex;align-items:baseline;gap:7px;
-        font:12.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;color:#e6ecf4;
+        font-family:var(--mono);font-size:var(--t8);line-height:1;color:#e6ecf4;
         font-variant-numeric:tabular-nums;text-shadow:0 1px 8px rgba(0,0,0,.9)}
-  #sess em{font-style:normal;font-size:10.5px;letter-spacing:.1em;color:rgba(255,255,255,.42);
+  #sess em{font-style:normal;font-size:var(--t9);letter-spacing:.1em;color:rgba(255,255,255,.42);
            margin-right:9px;text-transform:uppercase}
   #sess em:last-child{margin-right:0}
 
@@ -197,7 +309,7 @@
         box-shadow:0 0 8px rgba(255,69,58,.7)}
   #phoneBadge{position:absolute;left:50%;top:22px;
     transform:translateX(-50%) translateY(-8px) scale(.94);opacity:0;pointer-events:none;
-    font-size:12.5px;font-weight:510;letter-spacing:-.008em;
+    font-size:var(--t8);font-weight:510;letter-spacing:-.008em;
     color:#ffd9d6;background:rgba(255,69,58,.18);border:1px solid rgba(255,69,58,.45);
     padding:7px 14px;border-radius:999px;backdrop-filter:blur(14px);
     -webkit-backdrop-filter:blur(14px);
@@ -208,7 +320,7 @@
   /* ---------- панель ---------- */
   /* Панель ведёт пружина в JS, а не CSS-переход: её можно схватить на лету
      и развернуть, а стекло «густеет» по мере приезда — материал, а не проявление. */
-  #sheet{position:fixed;top:0;right:0;bottom:0;width:382px;max-width:92vw;z-index:9;
+  #sheet{position:fixed;top:0;right:0;bottom:0;width:23.875rem;max-width:92vw;z-index:9;
     background:var(--glass);backdrop-filter:blur(30px) saturate(180%);
     -webkit-backdrop-filter:blur(30px) saturate(180%);
     border-left:1px solid var(--line);padding:24px 22px 30px;overflow-y:auto;
@@ -221,7 +333,7 @@
   /* Цветная плашка со значком — опознавательный знак раздела. Цвет не украшение:
      яркий = основной раздел, серый = свёрнутое «для продвинутых». */
   #sheet h2{display:flex;align-items:center;gap:9px;
-    font-size:12.5px;font-weight:590;letter-spacing:-.004em;text-transform:none;
+    font-size:var(--t8);font-weight:590;letter-spacing:-.004em;text-transform:none;
     color:var(--mut);margin:26px 0 9px;padding:0;border:0}
   .ic{width:22px;height:22px;border-radius:6.5px;display:grid;place-items:center;flex:none}
   .ic svg{width:13px;height:13px;display:block;color:#fff}
@@ -238,10 +350,10 @@
   #sheet h2:first-of-type{margin-top:0}
 
   /* Режим — один выбор вместо одиннадцати тумблеров */
-  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;
+  .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;
     background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:3px}
-  .seg button{font:inherit;font-size:14px;font-weight:510;letter-spacing:-.008em;border:0;
+  .seg button{font:inherit;font-size:var(--t7);font-weight:510;letter-spacing:-.008em;border:0;
     background:none;color:var(--ink);padding:9px 6px;border-radius:10px;cursor:pointer;
     transition:background .2s ease,color .2s ease}
   .seg button[aria-pressed="true"]{background:rgba(255,255,255,.17)}
@@ -253,17 +365,17 @@
   .card>.sw,.card>.num,.card>.row,.card>.sl{border-top:1px solid rgba(255,255,255,.075)}
   .card>:first-child{border-top:0}
   .row{display:flex;align-items:center;justify-content:space-between;gap:12px;
-    min-height:46px;padding:11px 0;font-size:14px;letter-spacing:-.008em;color:var(--ink)}
+    min-height:46px;padding:11px 0;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink)}
   .sl{padding:12px 0 13px}
   .sl-top{display:flex;align-items:center;justify-content:space-between;gap:12px;
-    font-size:14px;letter-spacing:-.008em;color:var(--ink);margin-bottom:2px}
+    font-size:var(--t7);letter-spacing:-.008em;color:var(--ink);margin-bottom:2px}
   .sl-top b{color:var(--mut);font-weight:400}
   /* Заголовок панели: «где я» — базовое требование к навигации */
   .sheet-head{display:flex;align-items:center;justify-content:space-between;
     margin:-4px -6px 20px;gap:12px}
-  .sheet-head h1{font-size:26px;font-weight:640;letter-spacing:-.028em;color:var(--ink)}
+  .sheet-head h1{font-size:var(--t3);font-weight:640;letter-spacing:-.028em;color:var(--ink)}
   #close{flex:none;background:rgba(255,255,255,.09);border:0;color:var(--mut);
-    font-size:14px;cursor:pointer;line-height:1;width:30px;height:30px;border-radius:50%;
+    font-size:var(--t7);cursor:pointer;line-height:1;width:30px;height:30px;border-radius:50%;
     display:grid;place-items:center;transition:color .18s,background .18s}
   #close:hover{color:var(--ink);background:rgba(255,255,255,.07)}
   #close:active{color:var(--ink);transform:scale(.86);transition:transform var(--press)}
@@ -272,70 +384,72 @@
   .pick .rv{color:var(--mut);max-width:64%;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap;text-align:right}
   .pick.set .rv{color:var(--ok)}
-  .pick::after{content:"›";font-size:20px;line-height:1;color:var(--mut2);margin-left:-4px}
+  .pick::after{content:"›";font-size:var(--t5);line-height:1;color:var(--mut2);margin-left:-4px}
   .pick:active{opacity:.55;transition:opacity var(--press)}
   .pick input{display:none}
 
   .sw{display:flex;align-items:center;justify-content:space-between;gap:12px;
-    font-size:14px;letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
+    font-size:var(--t7);letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
   .sw input{appearance:none;width:40px;height:23px;border-radius:999px;background:rgba(255,255,255,.07);
     border:1px solid var(--line);position:relative;cursor:pointer;transition:.2s;flex:none}
   .sw input::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
     background:var(--mut);transition:.2s cubic-bezier(.32,.72,0,1)}
-  .sw input:checked{background:rgba(10,132,255,.26);border-color:rgba(10,132,255,.6)}
+  .sw input:checked{background:rgba(var(--acc-rgb),.26);border-color:rgba(var(--acc-rgb),.6)}
   .sw input:checked::after{left:19px;background:var(--acc)}
   /* язычок вытягивается под пальцем — как у системного переключателя */
   .sw input:active::after{width:21px}
   .sw input:checked:active::after{left:15px;width:21px}
-  .sw.sub{padding-left:16px;font-size:12.5px;color:var(--mut);min-height:42px}
+  .sw.sub{padding-left:16px;font-size:var(--t8);color:var(--mut);min-height:42px}
   .sw.sub input{width:34px;height:20px}
   .sw.sub input::after{width:14px;height:14px}
   .sw.sub input:checked::after{left:17px}
 
   .num{display:flex;align-items:center;justify-content:space-between;gap:12px;
-    font-size:14px;letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
+    font-size:var(--t7);letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
   .num input{width:78px;text-align:right;background:rgba(255,255,255,.08);border:1px solid transparent;
-    color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:14px;
+    color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:var(--t7);
     font-variant-numeric:tabular-nums}
-  .num input:focus{outline:none;border-color:var(--acc);background:rgba(10,132,255,.12)}
+  .num input:focus{outline:none;border-color:var(--acc);background:rgba(var(--acc-rgb),.12)}
   input[type=range]{width:100%;accent-color:var(--acc);margin:7px 0 0;display:block}
-  .rng{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--mut2);
+  .rng{display:flex;justify-content:space-between;gap:10px;font-size:var(--t8);color:var(--mut2);
     margin-top:5px;letter-spacing:-.003em}
 
-  .stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  /* Плитки сессии переехали из узкой панели на широкий «График»: жёсткие две
+     колонки растягивали их до 352 px. auto-fit даёт 2 в панели и 4 на странице. */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:8px}
   .st{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:13px 15px}
-  .st b{display:block;font-size:23px;font-weight:590;letter-spacing:-.028em;color:var(--ink);
+  .st b{display:block;font-size:var(--t4);font-weight:590;letter-spacing:-.028em;color:var(--ink);
     font-variant-numeric:tabular-nums;line-height:1.15}
-  .st span{font-size:12.5px;color:var(--mut);letter-spacing:-.003em}
-  .today{font-size:12.5px;color:var(--mut2);margin-top:10px;line-height:1.6;padding:0 4px}
+  .st span{font-size:var(--t8);color:var(--mut);letter-spacing:-.003em}
+  .today{font-size:var(--t8);color:var(--mut2);margin-top:10px;line-height:1.6;padding:0 4px}
   .today b{color:var(--mut);font-weight:530;font-variant-numeric:tabular-nums}
 
-  #live{font:12.5px/1.95 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);
+  #live{font-family:var(--mono);font-size:var(--t8);line-height:1.95;color:var(--mut);
     background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:12px 14px}
   #live b{color:var(--ink);font-weight:600}
   #live .hit{color:var(--bad)}
   #live i{font-style:normal;opacity:.45}
 
-  .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:22px}
-  .acts button{font:inherit;font-size:14px;font-weight:530;letter-spacing:-.008em;border-radius:14px;
+  .acts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:22px}
+  .acts button{font:inherit;font-size:var(--t7);font-weight:530;letter-spacing:-.008em;border-radius:14px;
     padding:13px 10px;cursor:pointer;background:rgba(255,255,255,.085);
     border:1px solid rgba(255,255,255,.075);color:var(--ink);
     transition:background .18s,border-color .18s}
-  .acts button:hover:not(:disabled){background:rgba(10,132,255,.24);border-color:rgba(10,132,255,.5)}
+  .acts button:hover:not(:disabled){background:rgba(var(--acc-rgb),.24);border-color:rgba(var(--acc-rgb),.5)}
   .acts button:active:not(:disabled){transform:scale(.96);transition:transform var(--press)}
   .acts button:disabled{opacity:.32;cursor:default}
   .acts button.primary{background:var(--ink);color:#000;border-color:transparent;
     font-weight:590;padding:15px 10px}
   .acts button.primary:hover:not(:disabled){background:#fff;border-color:transparent}
-  .quiet{display:block;margin:2px auto 0;font:inherit;font-size:12.5px;color:var(--acc);
+  .quiet{display:block;margin:2px auto 0;font:inherit;font-size:var(--t8);color:var(--acc);
     background:none;border:0;cursor:pointer;padding:8px 10px;transition:opacity .16s}
   .quiet:disabled{opacity:.35;cursor:default}
   .quiet:active:not(:disabled){opacity:.55;transition:opacity var(--press)}
   details.more{margin-top:16px}
   details.more summary{list-style:none;cursor:pointer;display:flex;align-items:center;
-    justify-content:space-between;gap:10px;font-size:14px;letter-spacing:-.008em;color:var(--ink);
+    justify-content:space-between;gap:10px;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink);
     min-height:46px;padding:11px 14px;background:rgba(255,255,255,.062);
     border:1px solid rgba(255,255,255,.075);border-radius:14px;user-select:none;
     transition:background .18s}
@@ -343,15 +457,15 @@
   details.more summary:hover{background:rgba(255,255,255,.09)}
   details.more summary:active{opacity:.6;transition:opacity var(--press)}
   details.more summary b{font-weight:400}
-  details.more summary i:not(.ic){font-style:normal;font-size:14px;color:var(--mut);
+  details.more summary i:not(.ic){font-style:normal;font-size:var(--t7);color:var(--mut);
     margin-left:auto;margin-right:2px}
-  details.more summary::after{content:"›";font-size:20px;line-height:1;color:var(--mut2);
+  details.more summary::after{content:"›";font-size:var(--t5);line-height:1;color:var(--mut2);
     transform:rotate(90deg);transition:transform .22s var(--spring)}
   details.more[open] summary::after{transform:rotate(-90deg)}
   details.more{margin-top:14px}
   details.more .box{padding:14px 0 2px}
   details.more .box h2:first-child{margin-top:0}
-  .hint{font-size:12.5px;color:var(--mut2);line-height:1.65;margin-top:18px;padding:0 4px}
+  .hint{font-size:var(--t8);color:var(--mut2);line-height:1.65;margin-top:18px;padding:0 4px}
 
   /* ---------- обучение ---------- */
   #wiz{position:fixed;inset:0;z-index:15;display:flex;flex-direction:column;align-items:center;
@@ -365,13 +479,13 @@
      после «Готово» интерфейс не должен быть заперт ещё полсекунды */
   #wiz.on{opacity:1;visibility:visible;transform:none;pointer-events:auto;
     transition:opacity .26s ease,transform .44s var(--spring)}
-  #wiz .step{font-size:12.5px;font-weight:530;letter-spacing:-.004em;
+  #wiz .step{font-size:var(--t8);font-weight:530;letter-spacing:-.004em;
     color:var(--mut);margin-bottom:16px}
-  #wiz h2{font-size:clamp(30px,4.8vw,50px);font-weight:600;letter-spacing:-.04em;margin:0;
+  #wiz h2{font-size:clamp(1.875rem,4.8vw,3.125rem);font-weight:600;letter-spacing:-.04em;margin:0;
     border:0;padding:0;text-transform:none;color:var(--ink);line-height:1.02}
-  #wiz p{color:var(--mut);font-size:17px;line-height:1.6;max-width:34ch;margin-top:16px;
+  #wiz p{color:var(--mut);font-size:var(--t6);line-height:1.6;max-width:34ch;margin-top:16px;
     text-wrap:balance;letter-spacing:-.011em}
-  #wiz .cd{font-size:66px;font-weight:590;letter-spacing:-.04em;line-height:1;color:var(--ink);
+  #wiz .cd{font-size:var(--t1);font-weight:590;letter-spacing:-.04em;line-height:1;color:var(--ink);
     margin-top:30px;font-variant-numeric:tabular-nums}
   #wiz .pr{width:220px;height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:22px;
     overflow:hidden}
@@ -379,32 +493,32 @@
   /* пропорции корпуса телефона (iPhone 15 Pro Max — 159.9 x 76.7 мм ≈ 2.08:1) */
   #frameBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     height:min(78vh,840px);aspect-ratio:1 / 2.08;
-    border:2px dashed rgba(10,132,255,.8);border-radius:min(7vh,52px);display:none;
+    border:2px dashed rgba(var(--acc-rgb),.8);border-radius:min(7vh,52px);display:none;
     box-shadow:0 0 0 100vmax rgba(4,6,10,.55)}
   #frameBox.on{display:block}
   /* когда показана рамка телефона — текст уводим наверх, отсчёт ставим внутрь неё */
   #wiz.ph{justify-content:flex-start;padding-top:2vh}
-  #wiz.ph h2{font-size:clamp(23px,3.2vw,32px)}
-  #wiz.ph p{max-width:700px;margin-top:9px;font-size:12.5px;line-height:1.45}
+  #wiz.ph h2{font-size:clamp(1.4375rem,3.2vw,2rem)}
+  #wiz.ph p{max-width:700px;margin-top:9px;font-size:var(--t8);line-height:1.45}
   #wiz.ph .step{margin-bottom:12px}
   #wiz.ph .cd{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);margin:0;
     font-size:min(9vh,64px);color:rgba(245,245,247,.92)}
   #wiz.ph .pr{position:fixed;left:50%;bottom:7vh;transform:translateX(-50%);margin:0}
   #frameBox::before{content:"";position:absolute;left:50%;top:11px;transform:translateX(-50%);
-    width:31%;height:11px;border-radius:999px;background:rgba(10,132,255,.32)}
+    width:31%;height:11px;border-radius:999px;background:rgba(var(--acc-rgb),.32)}
   #frameBox b{position:absolute;left:50%;bottom:-32px;transform:translateX(-50%);white-space:nowrap;
-    font:10.5px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.14em;color:var(--acc)}
-  #wiz .res{font:12.5px/2 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mut);margin-top:24px;
+    font-family:var(--mono);font-size:var(--t9);line-height:1;letter-spacing:.14em;color:var(--acc)}
+  #wiz .res{font-family:var(--mono);font-size:var(--t8);line-height:2;color:var(--mut);margin-top:24px;
     background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:16px 20px}
   #wiz .res b{color:var(--ink)}
   #wiz .res .good{color:var(--ok)} #wiz .res .bad{color:var(--bad)}
-  #wiz button{margin-top:28px;font:inherit;font-size:17px;font-weight:590;letter-spacing:-.012em;
+  #wiz button{margin-top:28px;font:inherit;font-size:var(--t6);font-weight:590;letter-spacing:-.012em;
     border:0;border-radius:999px;padding:15px 44px;background:var(--ink);color:#000;cursor:pointer;
     transition:transform .2s var(--spring),box-shadow .2s ease}
   #wiz button:hover{transform:translateY(-2px);box-shadow:0 20px 48px -20px rgba(245,245,247,.7)}
   #wiz button:active{transform:translateY(-1px) scale(.96);transition:transform var(--press)}
-  .learn{font-size:12.5px;color:var(--mut2);line-height:1.55;margin-top:9px;padding:0 4px}
+  .learn{font-size:var(--t8);color:var(--mut2);line-height:1.55;margin-top:9px;padding:0 4px}
   .learn b{color:var(--ok);font-weight:530}
   .learn a{color:var(--mut);text-decoration:underline;cursor:pointer}
 
@@ -415,23 +529,40 @@
   .chips{display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;
     margin:0 -22px 9px;padding:0 22px 2px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
-  .chips button{flex:none;font-family:inherit;font-weight:510;font-size:12.5px;
+  .chips button{flex:none;font-family:inherit;font-weight:510;font-size:var(--t8);
     letter-spacing:-.004em;color:var(--mut);background:rgba(255,255,255,.075);
     border:1px solid rgba(255,255,255,.075);border-radius:999px;padding:6px 12px;
     cursor:pointer;transition:background .2s ease,color .2s ease,border-color .2s ease}
   .chips button[aria-pressed="true"]{background:var(--ink);color:#000;border-color:transparent}
   .chips button:active{opacity:.55;transition:opacity var(--press)}
 
-  .shelf{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .tile{padding:0;border:0;background:none;cursor:pointer;font-family:inherit;
-    text-align:left;color:var(--mut);transition:transform var(--press)}
+  .shelf{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  /* Смена категории заменяет всю сетку разом — плитки телепортировались.
+     @starting-style даёт появление без единой строчки JS: браузер сам берёт
+     начальное состояние для только что вставленного элемента.
+     Ступенька 22 мс, но не дальше 11-й плитки (`--i` ставится в разметке):
+     на 33 штуках волна иначе тянулась бы почти секунду. */
+  .tile{--in-delay:calc(var(--i,0) * 22ms);
+    padding:0;border:0;background:none;cursor:pointer;font-family:inherit;
+    text-align:left;color:var(--mut);
+    transition:transform var(--press),opacity .18s var(--ease-out) var(--in-delay)}
+  @starting-style{ .tile{opacity:0} }
   .tile img,.tile em{display:block;width:100%;aspect-ratio:16/11;border-radius:10px;
     background:rgba(255,255,255,.06);box-shadow:0 0 0 1px rgba(255,255,255,.075) inset;
     transition:box-shadow .2s ease}
+  /* Масштаб живёт на содержимом, а не на .tile: у самой плитки transform занят
+     откликом на нажатие (110 мс), и одно свойство двумя длительностями не анимируется. */
+  @media (prefers-reduced-motion:no-preference){
+    .tile img,.tile em{
+      transition:box-shadow .2s ease,transform .18s var(--ease-out) var(--in-delay)}
+    @starting-style{ .tile img,.tile em{transform:scale(.97)} }
+  }
+  /* «Уменьшить движение»: растворение остаётся, сдвиг и ступенька — нет */
+  @media (prefers-reduced-motion:reduce){ .tile{--in-delay:0ms} }
   .tile img{object-fit:cover}
   .tile em{display:grid;place-items:center;font-style:normal;font-weight:680;
-    font-size:14px;letter-spacing:-.03em;color:var(--bad)}
-  .tile span{display:block;margin-top:5px;font-size:10.5px;letter-spacing:-.002em;
+    font-size:var(--t7);letter-spacing:-.03em;color:var(--bad)}
+  .tile span{display:block;margin-top:5px;font-size:var(--t9);letter-spacing:-.002em;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .2s ease}
   .tile:active{transform:scale(.95)}
   .tile[aria-pressed="true"] img,.tile[aria-pressed="true"] em{box-shadow:0 0 0 2px var(--acc)}
@@ -455,12 +586,12 @@
   #boom.on #slap{transform:none;opacity:1;
     transition:transform .32s cubic-bezier(.14,.85,.3,1),opacity .16s ease}
   /* без свечения: крупная плотная типографика бьёт сильнее, чем ореол */
-  #slap .t{font-size:clamp(56px,14.5vw,184px);font-weight:680;letter-spacing:-.055em;
+  #slap .t{font-size:clamp(3.5rem,14.5vw,11.5rem);font-weight:680;letter-spacing:-.055em;
     line-height:.86;color:var(--bad)}
-  #slap .s{margin-top:24px;color:var(--mut);font-size:clamp(16px,2.2vw,21px);
+  #slap .s{margin-top:24px;color:var(--mut);font-size:clamp(var(--t6),2.2vw,var(--t5));
     letter-spacing:-.014em}
   #esc{position:fixed;left:50%;transform:translateX(-50%);bottom:28px;z-index:21;display:none;
-    font-size:12.5px;color:var(--mut2);letter-spacing:-.004em}
+    font-size:var(--t8);color:var(--mut2);letter-spacing:-.004em}
   #boom.on ~ #esc{display:block}
 
 
@@ -478,27 +609,27 @@
     box-shadow:0 30px 80px -30px rgba(0,0,0,.9);
     transform:scale(.96);transition:transform .34s var(--ease-out)}
   #ask.on .askCard{transform:none}
-  .askCard h2{font-size:23px;font-weight:600;letter-spacing:-.024em;color:var(--ink)}
-  .askCard>p{margin-top:7px;font-size:12.5px;line-height:1.5;color:var(--mut);
+  .askCard h2{font-size:var(--t4);font-weight:600;letter-spacing:-.024em;color:var(--ink)}
+  .askCard>p{margin-top:7px;font-size:var(--t8);line-height:1.5;color:var(--mut);
     letter-spacing:-.006em}
   .askList{margin-top:18px;display:flex;flex-direction:column;gap:6px}
   .askList button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
-    font:inherit;font-size:14px;letter-spacing:-.008em;color:var(--ink);
+    font:inherit;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink);
     background:rgba(255,255,255,.07);border:1px solid transparent;border-radius:14px;
     padding:13px 14px;cursor:pointer;transition:background .16s ease,border-color .16s ease}
   .askList button:hover{background:rgba(255,255,255,.12)}
   .askList button:active{opacity:.6;transition:opacity var(--press)}
-  .askList button.last{border-color:rgba(10,132,255,.55);background:rgba(10,132,255,.14)}
+  .askList button.last{border-color:rgba(var(--acc-rgb),.55);background:rgba(var(--acc-rgb),.14)}
   /* Главное действие шага: крупное, белое — мимо него не промахнёшься */
   .askList button.askGo{justify-content:center;background:var(--ink);color:#000;
-    font-size:17px;font-weight:590;padding:16px 14px;letter-spacing:-.012em}
+    font-size:var(--t6);font-weight:590;padding:16px 14px;letter-spacing:-.012em}
   .askList button.askGo:hover{background:#fff}
-  .askList button.last::after{content:"в прошлый раз";margin-left:auto;font-size:12.5px;
+  .askList button.last::after{content:"в прошлый раз";margin-left:auto;font-size:var(--t8);
     color:var(--mut)}
   /* Своё занятие подтверждается кнопкой, а не только Enter: на телефоне
      клавиши Enter нет, да и без видимой кнопки непонятно, что делать дальше. */
   .askOther{position:relative;display:flex}
-  .askList input{width:100%;font:inherit;font-size:14px;color:var(--ink);
+  .askList input{width:100%;font:inherit;font-size:var(--t7);color:var(--ink);
     background:rgba(255,255,255,.09);border:1px solid var(--acc);border-radius:14px;
     padding:13px 52px 13px 14px;outline:none}
   .askOther button{position:absolute;right:6px;top:50%;width:34px;height:34px;
@@ -508,13 +639,13 @@
   .askOther button svg{width:17px;height:17px;display:block}
   .askOther button:disabled{opacity:.28;cursor:default}
   .askOther button:active:not(:disabled){transform:translateY(-50%) scale(.9)}
-  .askSkip{display:block;margin:16px auto 0;font:inherit;font-size:12.5px;color:var(--mut);
+  .askSkip{display:block;margin:16px auto 0;font:inherit;font-size:var(--t8);color:var(--mut);
     background:none;border:0;cursor:pointer;padding:6px 10px;transition:color .16s}
   .askSkip:hover{color:var(--ink)}
 
   /* чем занят — видно в шапке, это и есть смысл «назвать вслух» */
   #task{pointer-events:auto;display:none;align-items:center;max-width:300px;
-    font-size:12.5px;font-weight:510;letter-spacing:-.012em;color:var(--ink);
+    font-size:var(--t8);font-weight:510;letter-spacing:-.012em;color:var(--ink);
     background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
     -webkit-backdrop-filter:blur(18px) saturate(180%);border:1px solid var(--line);
     border-radius:999px;padding:8px 14px;cursor:pointer;flex:none;
@@ -528,16 +659,16 @@
   #task:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
 
   /* ---------- страница статистики ---------- */
-  #stats,#prof,#acc,#frn{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
+  #stats,#prof,#acc,#frn,#react{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
     opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .26s ease,visibility 0s linear .26s}
-  #stats.on,#prof.on,#acc.on,#frn.on{opacity:1;visibility:visible;pointer-events:auto;
+  #stats.on,#prof.on,#acc.on,#frn.on,#react.on{opacity:1;visibility:visible;pointer-events:auto;
     transition:opacity .28s ease}
-  .stWrap{max-width:760px;margin:0 auto;padding:28px 24px 56px}
+  .stWrap{max-width:47.5rem;margin:0 auto;padding:28px 24px 56px}
   .stHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
-  .stHead h1{font-size:30px;font-weight:640;letter-spacing:-.03em;color:var(--ink)}
+  .stHead h1{font-size:var(--t2);font-weight:640;letter-spacing:-.03em;color:var(--ink)}
   #stClose,.xbtn{flex:none;background:rgba(255,255,255,.09);border:0;color:var(--mut);
-    font-size:14px;cursor:pointer;width:32px;height:32px;border-radius:50%;
+    font-size:var(--t7);cursor:pointer;width:32px;height:32px;border-radius:50%;
     display:grid;place-items:center;transition:background .18s,color .18s}
   #stClose:hover,.xbtn:hover{background:rgba(255,255,255,.16);color:var(--ink)}
   #stClose:active,.xbtn:active{transform:scale(.88);transition:transform var(--press)}
@@ -545,21 +676,77 @@
   /* Профиль: круг с буквой вместо аватарки — эмодзи в интерфейсе не ставим */
   .pTop{display:flex;align-items:center;gap:17px;margin-bottom:26px}
   .pAva{width:74px;height:74px;border-radius:50%;background:var(--acc);color:#fff;flex:none;
-    display:grid;place-items:center;font-size:30px;font-weight:620;letter-spacing:-.02em}
-  .pName{font-family:inherit;font-size:23px;font-weight:600;letter-spacing:-.022em;
+    display:grid;place-items:center;font-size:var(--t2);font-weight:620;letter-spacing:-.02em;
+    overflow:hidden}
+  .pAva img{width:100%;height:100%;object-fit:cover;display:block}
+  .pAva{cursor:pointer;transition:filter .18s ease}
+  .pAva:hover{filter:brightness(1.12)}
+  .pAva:active{transform:scale(.96);transition:transform var(--press)}
+  .pName{font-family:inherit;font-size:var(--t4);font-weight:600;letter-spacing:-.022em;
     color:var(--ink);background:none;border:0;border-bottom:1px solid var(--line);
     padding:5px 2px;width:100%;max-width:320px;outline:none;transition:border-color .18s}
   .pName:focus{border-color:var(--acc)}
   .pName::placeholder{color:var(--mut2)}
-  .pGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(152px,1fr));gap:9px}
+  /* Заголовок раздела внутри полноэкранного слоя — тот же голос, что у заголовков
+     в панели: обычный регистр, приглушённый, без разрядки. */
+  .lbl{font-size:var(--t8);font-weight:510;letter-spacing:-.004em;color:var(--mut);
+    margin:32px 0 11px}
+
+  /* Одна главная цифра вместо шести равных: шесть одинаковых чисел означают,
+     что ни одно не важно. Кегли остаются в шкале — clamp между --t2 и --t1. */
+  .pHero{margin:4px 0 4px}
+  .pHero b{display:block;font-size:clamp(var(--t2),7vw,var(--t1));font-weight:620;
+    letter-spacing:-.04em;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+  .pHero span{display:block;margin-top:9px;font-size:var(--t6);color:var(--mut);
+    letter-spacing:-.008em}
+  .pSub{margin-top:7px;font-size:var(--t8);color:var(--mut2);letter-spacing:-.004em}
+  .pGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr));gap:9px}
+
+  /* Пустое состояние — отдельная вещь, а не абзац-оправдание. Пока нечего
+     показывать, экран должен объяснять, что будет, когда станет что. */
+  /* Год одним взглядом. Намеренно НЕ повторяет «График»: там разбор по часам
+     и дням, тут — вся история сразу, чтобы видеть серии и провалы. Одна серия,
+     один цвет, четыре ступени яркости — как требует dataviz. */
+  .year{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);
+    gap:3px;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:6px}
+  .year i{width:11px;height:11px;border-radius:2px;background:rgba(255,255,255,.055)}
+  .year i[data-l="1"]{background:rgba(var(--acc-rgb),.3)}
+  .year i[data-l="2"]{background:rgba(var(--acc-rgb),.52)}
+  .year i[data-l="3"]{background:rgba(var(--acc-rgb),.76)}
+  .year i[data-l="4"]{background:rgb(var(--acc-rgb))}
+  .yearLeg{display:flex;align-items:center;gap:5px;margin-top:9px;
+    font-size:var(--t9);color:var(--mut2);letter-spacing:-.002em}
+  .yearLeg i{width:11px;height:11px;border-radius:2px;background:rgba(255,255,255,.055)}
+
+  .empty{max-width:42ch;margin:0 auto;padding:40px 0 8px;text-align:center}
+  .empty svg{width:40px;height:40px;color:var(--mut2);margin-bottom:20px}
+  .empty b{display:block;font-size:var(--t4);font-weight:600;letter-spacing:-.022em;
+    color:var(--ink)}
+  .empty p{margin:11px auto 26px;max-width:38ch;font-size:var(--t7);line-height:1.6;
+    color:var(--mut);letter-spacing:-.006em}
   .pCell{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:15px 16px}
-  .pCell b{display:block;font-size:23px;font-weight:590;letter-spacing:-.022em;
+  .pCell b{display:block;font-size:var(--t4);font-weight:590;letter-spacing:-.022em;
     color:var(--ink);font-variant-numeric:tabular-nums}
-  .pCell span{display:block;margin-top:3px;font-size:12.5px;color:var(--mut);
+  .pCell span{display:block;margin-top:3px;font-size:var(--t8);color:var(--mut);
     letter-spacing:-.003em}
-  .note{margin:0 0 20px;max-width:56ch;font-size:14px;line-height:1.65;color:var(--mut);
+  .note{margin:0 0 20px;max-width:56ch;font-size:var(--t7);line-height:1.65;color:var(--mut);
     letter-spacing:-.006em}
+
+  /* Вход через Google. Кнопку рисует сам Google в своём iframe — её оформление
+     нам не подчиняется, поэтому вокруг ставим свою рамку, а не спорим с ней. */
+  #gBox{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
+    border-radius:14px;padding:16px;margin-bottom:20px;display:grid;justify-items:start;gap:12px}
+  #gIn{display:flex;align-items:center;gap:13px;width:100%}
+  #gPic{width:44px;height:44px;border-radius:50%;flex:none;background:rgba(255,255,255,.1);
+    object-fit:cover}
+  #gWho{min-width:0}
+  #gWho b{display:block;font-size:var(--t7);font-weight:560;letter-spacing:-.012em;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #gWho span{display:block;margin-top:1px;font-size:var(--t8);color:var(--mut);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #gOut{margin-left:auto;flex:none;margin-top:0}
+  #gNote{margin:0}
   .note b{color:var(--ink);font-weight:520}
 
   /* ---------- цель на день ----------
@@ -576,28 +763,28 @@
     transition:stroke-dashoffset .75s var(--ease-out),stroke .3s ease}
   .ring.over .val{stroke:var(--bad)}
   .ring b{position:absolute;inset:0;display:grid;place-items:center;
-    font-size:20px;font-weight:590;letter-spacing:-.025em;color:var(--ink);
+    font-size:var(--t5);font-weight:590;letter-spacing:-.025em;color:var(--ink);
     font-variant-numeric:tabular-nums}
   .goalTxt{min-width:0}
-  .goalTxt h3{font-size:17px;font-weight:590;letter-spacing:-.018em;color:var(--ink);
+  .goalTxt h3{font-size:var(--t6);font-weight:590;letter-spacing:-.018em;color:var(--ink);
     margin-bottom:6px}
-  .goalTxt p{font-size:12.5px;line-height:1.55;color:var(--mut);letter-spacing:-.006em}
+  .goalTxt p{font-size:var(--t8);line-height:1.55;color:var(--mut);letter-spacing:-.006em}
   #gPlan{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.09)}
   #gPlan:empty{display:none}
   .goalTxt p b{color:var(--ink);font-weight:530;font-variant-numeric:tabular-nums}
 
   .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 24px}
-  .kpi .st b{font-size:26px}
+  .kpi .st b{font-size:var(--t3)}
 
   .chartBox{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);
     border-radius:14px;padding:20px 18px 14px;position:relative}
-  .chartTitle{font-size:12.5px;font-weight:590;letter-spacing:-.004em;color:var(--mut);
+  .chartTitle{font-size:var(--t8);font-weight:590;letter-spacing:-.004em;color:var(--mut);
     margin-bottom:16px}
   .plot{position:relative;height:210px}
   .grid{position:absolute;inset:0;pointer-events:none}
   .grid i{position:absolute;left:56px;right:0;height:1px;background:rgba(255,255,255,.07)}
   .grid u{position:absolute;left:0;width:50px;text-align:right;transform:translateY(-50%);
-    font-style:normal;font-size:10.5px;color:var(--mut2);font-variant-numeric:tabular-nums}
+    font-style:normal;font-size:var(--t9);color:var(--mut2);font-variant-numeric:tabular-nums}
   .bars{position:absolute;top:0;bottom:0;left:56px;right:0;display:flex;align-items:flex-end;gap:2px}
   .bar{flex:1;min-width:0;position:relative;height:100%;display:flex;align-items:flex-end}
   .bar>i{display:block;width:100%;border-radius:4px 4px 2px 2px;background:#ff453a;
@@ -606,12 +793,12 @@
   #stats.shown .bar>i{transform:scaleY(1);opacity:.92}
   .bar.zero>i{background:rgba(255,255,255,.13)}
   .xlab{display:flex;gap:2px;margin:9px 0 0 56px}
-  .xlab span{flex:1;min-width:0;text-align:center;font-size:10.5px;color:var(--mut2);
+  .xlab span{flex:1;min-width:0;text-align:center;font-size:var(--t9);color:var(--mut2);
     font-variant-numeric:tabular-nums;white-space:nowrap;overflow:visible}
 
   #stTip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-100%);
     background:rgba(28,28,30,.96);border:1px solid rgba(255,255,255,.14);border-radius:10px;
-    padding:7px 11px;font-size:12.5px;color:var(--ink);white-space:nowrap;z-index:3;
+    padding:7px 11px;font-size:var(--t8);color:var(--ink);white-space:nowrap;z-index:3;
     box-shadow:0 10px 30px -10px rgba(0,0,0,.8);transition:opacity .14s ease}
   #stTip.on{opacity:1}
   #stTip b{font-weight:590;font-variant-numeric:tabular-nums}
@@ -619,17 +806,17 @@
   @media (hover:hover) and (pointer:fine){
     .bar:hover>i{filter:brightness(1.35)}
   }
-  .stEmpty{text-align:center;color:var(--mut);font-size:14px;line-height:1.6;
+  .stEmpty{text-align:center;color:var(--mut);font-size:var(--t7);line-height:1.6;
     padding:58px 20px;letter-spacing:-.008em}
-  .stEmpty b{display:block;color:var(--ink);font-weight:560;font-size:17px;margin-bottom:6px}
-  .stNote{font-size:12.5px;color:var(--mut2);line-height:1.6;margin-top:14px;padding:0 4px}
+  .stEmpty b{display:block;color:var(--ink);font-weight:560;font-size:var(--t6);margin-bottom:6px}
+  .stNote{font-size:var(--t8);color:var(--mut2);line-height:1.6;margin-top:14px;padding:0 4px}
 
   /* строка-ссылка в панели */
   /* именно font-family/weight, а не font: — сокращённая запись сбрасывает
      и размер, и строка вырастает до 16px вместо 14px у соседних */
   .linkrow{width:100%;font-family:inherit;font-weight:inherit;background:none;border:0;
     cursor:pointer;text-align:left;color:var(--ink)}
-  .linkrow::after{content:"›";font-size:20px;line-height:1;color:var(--mut2)}
+  .linkrow::after{content:"›";font-size:var(--t5);line-height:1;color:var(--mut2)}
   .linkrow:active{opacity:.55;transition:opacity var(--press)}
 
   /* ---------- три системные настройки доступности ---------- */
@@ -639,7 +826,8 @@
   @media (prefers-reduced-motion: reduce){
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
       animation-delay:0s!important;transition-duration:.16s!important}
-    .hero>*,.facts{animation:none}
+    .hcol>*,.demo{animation:none}
+    .scr>img{transform:none!important}
     #sheet{transform:none!important;transition:opacity .2s ease!important}
     #wiz{transform:none!important}
     /* пик приложения без «вваливания»: слово просто проявляется */
@@ -660,7 +848,7 @@
   /* «Уменьшить прозрачность»: стекло становится плотной поверхностью. */
   @media (prefers-reduced-transparency: reduce){
     :root{--glass:#0b0f16}
-    .chip,#fps,#gear,#sheet,#wiz{backdrop-filter:none!important;
+    .chip,#fps,#gear,#sheet,#wiz,#menu{backdrop-filter:none!important;
       -webkit-backdrop-filter:none!important}
     #sheet{background:#0b0f16}
     #wiz{background:#080b11}
@@ -674,7 +862,7 @@
       --glass:rgba(5,8,12,.94)}
     #sheet{background:rgba(5,8,12,.96);border-left-color:rgba(255,255,255,.42)}
     .st,#live,#wiz .res{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.3)}
-    .lede,.today,.hint,.learn{color:#c7c7cc} .perm,.facts span{color:#aeaeb2}
+    .lede,.today,.hint,.learn{color:#c7c7cc} .perm{color:#aeaeb2}
     .brk{border-color:rgba(255,255,255,.55)}
     .gl{color:rgba(255,255,255,.8)} .gv{color:#fff}
     .gt{background:rgba(255,255,255,.28)}
@@ -703,6 +891,9 @@
 </div>
 
 <div id="menu" role="menu" aria-hidden="true">
+  <button type="button" role="menuitem" data-go="react">
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M5.5 3.4v9.2l7-4.6z" fill="currentColor"/></svg><span>Реакция</span></button>
   <button type="button" role="menuitem" data-go="prof">
     <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <circle cx="8" cy="5.4" r="2.8" stroke="currentColor" stroke-width="1.5"/>
@@ -747,25 +938,38 @@
   <div id="phoneBadge">Телефон в кадре</div>
 </div>
 
+<div id="work">
+  <p id="wTask"></p>
+  <b id="wTime">0:00</b>
+  <span id="wLabel">в фокусе</span>
+  <p id="wSub"></p>
+</div>
+<button class="quiet" id="wCam">Показать камеру</button>
+
 <div id="idle">
   <div class="hero">
-    <svg class="mark" viewBox="0 0 48 26" fill="none" aria-hidden="true">
-      <path d="M1.6 13C9 3.6 17 .9 24 .9s15 2.7 22.4 12.1C39 22.4 31 25.1 24 25.1S9 22.4 1.6 13Z"
-            stroke="rgba(245,245,247,.55)" stroke-width="1.25" stroke-linejoin="round"/>
-      <circle cx="24" cy="13" r="6.4" stroke="rgba(245,245,247,.75)" stroke-width="1.25"/>
-      <circle cx="24" cy="13" r="2.5" fill="var(--acc)"/>
-    </svg>
-    <h1>Focus&nbsp;Guard</h1>
-    <p class="lede" id="lede">Отвели взгляд — на весь экран включается <b>ваше видео</b>.
-      Всё считает браузер: изображение с камеры никуда не уходит.</p>
-    <div class="cta">
-      <button id="go">Запустить</button>
-      <span class="perm">Браузер спросит доступ к камере</span>
+    <div class="hcol">
+      <svg class="mark" viewBox="0 0 48 26" fill="none" aria-hidden="true">
+        <path d="M1.6 13C9 3.6 17 .9 24 .9s15 2.7 22.4 12.1C39 22.4 31 25.1 24 25.1S9 22.4 1.6 13Z"
+              stroke="rgba(245,245,247,.55)" stroke-width="1.25" stroke-linejoin="round"/>
+        <circle cx="24" cy="13" r="6.4" stroke="rgba(245,245,247,.75)" stroke-width="1.25"/>
+        <circle cx="24" cy="13" r="2.5" fill="var(--acc)"/>
+      </svg>
+      <h1>Focus&nbsp;Guard</h1>
+      <p class="lede" id="lede">Отвели взгляд — и на весь экран влетает <b>то, что вы выбрали сами</b>.
+        Всё считает ваш браузер: ни один кадр не уходит с компьютера.</p>
+      <div class="cta">
+        <button id="go">Запустить</button>
+        <span class="perm"><b>Бесплатно, без регистрации, прямо в браузере.</b>
+          Понадобится доступ к камере.</span>
+      </div>
     </div>
-    <div class="facts">
-      <div><b>478</b><span>точек лица</span></div>
-      <div><b>≈20</b><span>кадров в секунду</span></div>
-      <div><b>0</b><span>кадров наружу</span></div>
+    <div class="demo" aria-hidden="true">
+      <div class="scr" id="scr">
+        <div class="work"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <img id="demoImg" alt="">
+        <div class="tag"><i></i><span id="demoTag">взгляд на экране</span></div>
+      </div>
     </div>
   </div>
 </div>
@@ -781,16 +985,12 @@
     <button type="button" data-m="hard">Строгий</button>
   </div>
   <p class="learn" id="modeInfo"></p>
-
-  <h2><i class="ic ic-red"><svg viewBox="0 0 16 16" aria-hidden="true">
-    <path d="M5.5 3.4v9.2l7-4.6z" fill="currentColor"/></svg></i>Что будет при отвлечении</h2>
-  <div class="chips" id="rCats" role="group" aria-label="Категории"></div>
-  <div class="shelf" id="rShelf"></div>
   <div class="card" style="margin-top:9px">
-    <label class="row pick" id="lVid"><span>Свой файл</span>
-      <span class="rv" id="nVid">Выбрать…</span>
-      <input type="file" id="fVid" accept="video/*,image/gif,image/webp"></label>
+    <div class="num"><span>Терпение, сек</span>
+      <input type="number" id="delay" value="5" min="1" max="60" step="0.5"></div>
   </div>
+  <p class="learn">Сколько секунд можно смотреть мимо, прежде чем включится реакция.
+    Главное средство против ложных срабатываний: трекер не слепнет, а просто ждёт дольше.</p>
 
   <h2><i class="ic ic-orange"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <rect x="4.6" y="2.2" width="6.8" height="11.6" rx="1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>
@@ -801,17 +1001,7 @@
   <div class="acts" style="grid-template-columns:1fr;margin-top:8px">
     <button id="learnPh" class="primary" disabled>Обучить свой телефон</button>
   </div>
-  <p class="learn" id="camState">модель ~6 МБ, грузится при включении</p>
-
-  <h2><i class="ic ic-green"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M4 12V8.5M8 12V4M12 12V6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></i>Эта сессия</h2>
-  <div class="stats">
-    <div class="st"><b id="sCount">0</b><span>Отвлечений</span></div>
-    <div class="st"><b id="sLost">0:00</b><span>Потеряно</span></div>
-    <div class="st"><b id="sLong">0:00</b><span>Самое долгое</span></div>
-    <div class="st"><b id="sWork">0:00</b><span>В фокусе</span></div>
-  </div>
-  <p class="today" id="today"></p>
+  <p class="learn" id="camState">модель грузится при включении, дальше лежит в кэше</p>
 
   <details class="more">
     <summary><i class="ic ic-grey"><svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -823,11 +1013,18 @@
       <h2>За чем следить</h2>
       <div class="card">
         <div class="sw"><span>Взгляд опущен вниз</span><input type="checkbox" id="tDown" checked></div>
-        <div class="sw sub"><span>только если голова наклонена</span><input type="checkbox" id="tDownHead" checked></div>
+        <!-- Скрыт: это не условие, а поправка к «взгляду вниз», и работает она ТОЛЬКО
+             пока позы не обучены. Позы обучены — тумблер ни на что не влияет.
+             Элемент оставлен в DOM: на нём держатся MODES/applyMode/currentMode. -->
+        <div class="sw sub" hidden><span>только если голова наклонена</span><input type="checkbox" id="tDownHead" checked></div>
         <div class="sw"><span>Лицо пропало</span><input type="checkbox" id="tGone" checked></div>
         <div class="sw"><span>Взгляд ушёл в сторону</span><input type="checkbox" id="tSide"></div>
+        <div class="sw"><span>Взгляд ушёл вверх</span><input type="checkbox" id="tUp" checked></div>
         <div class="sw"><span>Голова отвернулась</span><input type="checkbox" id="tHead"></div>
-        <div class="sw"><span>Глаза закрыты</span><input type="checkbox" id="tShut"></div>
+        <!-- Скрыт: ни один режим его не включает (soft/normal/hard — все 0), то есть
+             настройка была мёртвой. Заснувшего за столом ловит «лицо пропало».
+             Элемент оставлен в DOM по той же причине, что и tDownHead. -->
+        <div class="sw" hidden><span>Глаза закрыты</span><input type="checkbox" id="tShut"></div>
       </div>
 
       <h2>Когда телефон виден</h2>
@@ -842,7 +1039,6 @@
 
       <h2>Пороги</h2>
       <div class="card">
-        <div class="num"><span>Терпение, сек</span><input type="number" id="delay" value="5" min="1" max="60" step="0.5"></div>
         <div class="num"><span>Цель: не терять больше, мин/день</span><input type="number" id="goal" value="15" min="1" max="600" step="1"></div>
         <div class="sl">
           <div class="sl-top"><span>Чувствительность</span><b id="sensV">обычная</b></div>
@@ -895,6 +1091,16 @@
   <div class="stWrap">
     <div class="stHead"><h1>График</h1><button id="stClose" title="Закрыть">✕</button></div>
 
+    <p class="lbl" style="margin-top:0">Эта сессия</p>
+    <div class="stats">
+      <div class="st"><b id="sCount">0</b><span>Отвлечений</span></div>
+      <div class="st"><b id="sLost">0:00</b><span>Потеряно</span></div>
+      <div class="st"><b id="sLong">0:00</b><span>Самое долгое</span></div>
+      <div class="st"><b id="sWork">0:00</b><span>В фокусе</span></div>
+    </div>
+    <p class="today" id="today"></p>
+
+    <p class="lbl">История</p>
     <div class="seg" id="stRange">
       <button type="button" data-r="30m">30 минут</button>
       <button type="button" data-r="1h">Час</button>
@@ -937,16 +1143,39 @@
   </div>
 </div>
 
+<div id="react">
+  <div class="stWrap">
+    <div class="stHead"><h1>Реакция</h1>
+      <button class="xbtn" data-close="react" title="Закрыть" aria-label="Закрыть">✕</button></div>
+    <p class="note">Это влетит на весь экран, когда взгляд уедет. Выберите из готовых
+      или подставьте свой файл.</p>
+    <div class="chips" id="rCats" role="group" aria-label="Категории"></div>
+    <div class="shelf" id="rShelf"></div>
+    <p class="lbl">Или своё</p>
+    <div class="card">
+      <label class="row pick" id="lVid"><span>Свой файл</span>
+        <span class="rv" id="nVid">Выбрать…</span>
+        <input type="file" id="fVid" accept="video/*,image/gif,image/webp"></label>
+    </div>
+  </div>
+</div>
+
 <div id="prof">
   <div class="stWrap">
     <div class="stHead"><h1>Профиль</h1>
       <button class="xbtn" data-close="prof" title="Закрыть" aria-label="Закрыть">✕</button></div>
     <div class="pTop">
-      <div class="pAva" id="pAva">—</div>
-      <input class="pName" id="pName" placeholder="Ваше имя" maxlength="24"
-        autocomplete="off" spellcheck="false">
+      <label class="pAva" id="pAva" title="Поставить фото">—
+        <input type="file" id="pFile" accept="image/*" hidden></label>
+      <div style="min-width:0">
+        <input class="pName" id="pName" placeholder="Ваше имя" maxlength="24"
+          autocomplete="off" spellcheck="false">
+        <p class="pSub" id="pSub"></p>
+        <button class="quiet" id="pAvaDel" hidden
+          style="margin:6px 0 0;padding:0;text-align:left">Убрать фото</button>
+      </div>
     </div>
-    <div class="pGrid" id="pGrid"></div>
+    <div id="pBody"></div>
   </div>
 </div>
 
@@ -954,11 +1183,22 @@
   <div class="stWrap">
     <div class="stHead"><h1>Аккаунт</h1>
       <button class="xbtn" data-close="acc" title="Закрыть" aria-label="Закрыть">✕</button></div>
-    <p class="note">Аккаунта нет — и он не нужен: <b>всё хранится в этом браузере</b>.
-      Настройки, статистика, журнал отвлечений. Наружу не уходит ничего, как и картинка с камеры.</p>
-    <p class="note">Обратная сторона: на другом компьютере вы начнёте с чистого листа,
-      а очистка данных сайта сотрёт всё разом. Поэтому здесь можно забрать свои данные файлом
-      и положить их обратно где угодно.</p>
+    <div id="gBox" hidden>
+      <div id="gIn" hidden>
+        <img id="gPic" alt="">
+        <div id="gWho"><b id="gName"></b><span id="gMail"></span></div>
+        <button class="quiet" id="gOut">Выйти</button>
+      </div>
+      <div id="gBtn"></div>
+      <p class="learn" id="gNote"></p>
+    </div>
+    <p class="note">Вход показывает, <b>кто вы</b> — имя и фотография встанут в профиль.
+      Больше ничего: у приложения нет сервера, складывать статистику некуда.</p>
+
+    <p class="lbl">Ваши данные</p>
+    <p class="note">Настройки, статистика и журнал отвлечений лежат <b>в этом браузере</b>.
+      На другом компьютере будет чистый лист, а очистка данных сайта сотрёт всё разом.
+      Перенести их можно только файлом.</p>
     <div class="acts">
       <button id="accSave" class="primary">Сохранить в файл</button>
       <button id="accPick">Загрузить из файла</button>
@@ -973,12 +1213,22 @@
   <div class="stWrap">
     <div class="stHead"><h1>Друзья</h1>
       <button class="xbtn" data-close="frn" title="Закрыть" aria-label="Закрыть">✕</button></div>
-    <p class="note">Пока здесь одно — <b>позвать друга</b>. Общий список и сравнение результатов
-      без сервера не сделать: данные каждого лежат у него в браузере и друг о друге не знают.</p>
-    <div class="acts" style="grid-template-columns:1fr">
-      <button id="frnCopy" class="primary">Скопировать ссылку на приложение</button>
+    <div class="empty">
+      <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="6" cy="5.4" r="2.5" stroke="currentColor" stroke-width="1.3"/>
+        <path d="M1.4 13.4c.5-2.5 2.4-3.8 4.6-3.8s4.1 1.3 4.6 3.8" stroke="currentColor"
+          stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M11 3.3a2.5 2.5 0 0 1 0 4.2M12.2 9.9c1.4.5 2.3 1.7 2.6 3.5" stroke="currentColor"
+          stroke-width="1.3" stroke-linecap="round" stroke-dasharray="2.2 2"/></svg>
+      <b>Пока никого</b>
+      <p>Общий список и сравнение результатов требуют сервера, которого у приложения нет:
+        данные каждого лежат у него в браузере и друг о друге не знают.
+        Что работает уже сейчас — позвать друга пользоваться.</p>
+      <div class="acts" style="grid-template-columns:1fr;margin-top:0">
+        <button id="frnCopy" class="primary">Скопировать ссылку</button>
+      </div>
+      <p class="learn" id="frnInfo" style="margin-top:12px"></p>
     </div>
-    <p class="learn" id="frnInfo" style="text-align:center;margin-top:12px"></p>
   </div>
 </div>
 
@@ -993,6 +1243,14 @@
 import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const $ = id => document.getElementById(id);
+
+/* ============================================================
+   ВХОД ЧЕРЕЗ GOOGLE — вставьте сюда Client ID и больше ничего не трогайте.
+   Берётся в Google Cloud Console → «Учётные данные» → «Идентификатор клиента OAuth».
+   Пока строка пустая, раздела входа просто нет и к Google никто не обращается.
+   ============================================================ */
+const GOOGLE_ID = '';
+const GKEY = 'focusguard.google';
 const video = $('cam'), cv = $('ov'), ctx = cv.getContext('2d');
 
 const WASM  = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
@@ -1258,7 +1516,13 @@ async function loadCocoOnce(){
   try{
     await loadJS('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js');
     await loadJS('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
-    coco = await cocoSsd.load({base:'lite_mobilenet_v2'});
+    /* Было lite_mobilenet_v2 — самая лёгкая и самая неточная из трёх.
+       Её брали ради слабых машин, но телефон она теряла даже после обучения.
+       mobilenet_v2 заметно точнее на мелких и наполовину закрытых предметах;
+       весит больше, но качается один раз и дальше лежит в кэше браузера.
+       Поиск телефона идёт раз в 450 мс отдельно от детекции лица, поэтому
+       лишние миллисекунды на распознавание ни на что не влияют. */
+    coco = await cocoSsd.load({base:'mobilenet_v2'});
     $('camState').textContent='модель готова — телефон ищется в кадре';
   }catch(e){
     $('camState').textContent='не удалось загрузить модель (нет сети?)';
@@ -1277,6 +1541,11 @@ try{ scr=JSON.parse(localStorage.getItem(SCKEY)||'null'); }catch(e){}
 // границы экрана: дальше них взгляд уже не по монитору, а мимо
 const thSide = () => scr ? scr.side : th[0];
 const thDown = () => scr ? scr.down : th[1];
+/* Взгляд вверх. Метрика down знаковая: вниз — плюс, вверх — минус, и раньше
+   минус нигде не проверялся, поэтому взгляд поверх монитора не ловился вообще.
+   У кого границы записаны старой версией, поля up там нет — берём общий порог,
+   пока человек не перемерит границы заново. */
+const thUp = () => (scr && scr.up) ? scr.up : th[1];
 
 function scrInfo(){
   if(!$('scrInfo')) return;
@@ -1289,7 +1558,7 @@ function scrInfo(){
 
 function startScrTrain(){
   if(!running) return;
-  scrTrain={until:performance.now()+7000, s:0, d:0, n:0};
+  scrTrain={until:performance.now()+7000, s:0, d:0, u:0, n:0};
   closeSheet();
   $('wRes').style.display='none'; $('wBtn').style.display='none';
   $('wCd').style.display=''; document.querySelector('#wiz .pr').style.display='';
@@ -1306,7 +1575,7 @@ function finishScrTrain(){
   if(!t || t.n<5){
     $('wTitle').textContent='Мало данных';
     $('wRes').innerHTML='Лицо почти не попало в кадр. Попробуйте ещё раз.';
-  } else if(t.s<0.15 && t.d<0.15){
+  } else if(t.s<0.15 && t.d<0.15 && t.u<0.15){
     // взгляд почти не двигался — записать такие границы значит сделать приложение
     // сверхчувствительным, лучше честно отказаться
     $('wTitle').textContent='Взгляд почти не двигался';
@@ -1317,7 +1586,9 @@ function finishScrTrain(){
     /* Запас к измеренному краю: был 15%, стал 8% — «чуть за углом» теперь ловится
        заметно раньше. Совсем без запаса нельзя: не каждый в тренировке дотягивается
        взглядом до настоящего угла. */
-    scr={ side: Math.max(0.20, t.s*1.08+0.02), down: Math.max(0.20, t.d*1.08+0.02) };
+    scr={ side: Math.max(0.20, t.s*1.08+0.02),
+          down: Math.max(0.20, t.d*1.08+0.02),
+          up:   Math.max(0.20, t.u*1.08+0.02) };
     try{ localStorage.setItem(SCKEY, JSON.stringify(scr)); }catch(e){}
     $('wTitle').textContent='Границы записаны';
     $('wRes').innerHTML=`край экрана вбок: <b>${t.s.toFixed(2)}</b> → порог <b>${scr.side.toFixed(2)}</b><br>`+
@@ -1434,8 +1705,30 @@ function drawTimeline(){
     return `<b style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%"></b>`;
   }).join('');
 }
+/* Камера показывается СРАЗУ после запуска — Роман попросил 18 сентября:
+   «пусть сразу всё будет показано после вопросов теста». Спокойный экран
+   никуда не делся, он под той же кнопкой, только теперь она называется
+   «Скрыть камеру». Выбор запоминается: спрятал один раз — остаётся спрятанным. */
+const CAMKEY='focusguard.cam';
+let camShown = (()=>{ try{ return localStorage.getItem(CAMKEY)!=='0'; }catch(e){ return true; } })();
+function setCamShown(v){
+  camShown=v;
+  try{ localStorage.setItem(CAMKEY, v?'1':'0'); }catch(e){}
+  $('work').classList.toggle('on', running && !v);
+  $('hud').classList.toggle('on',  running &&  v);
+  $('wCam').textContent = v ? 'Скрыть камеру' : 'Показать камеру';
+}
+
 function drawHud(){
   const total = ses.start ? performance.now()-ses.start : 0;
+  /* Рабочий экран: один ответ на вопрос «сколько я уже сижу» */
+  const focusMs = Math.max(0, total - ses.lost - pausedMs());
+  $('wTime').textContent  = mmss(paused ? pausedMs() : focusMs);
+  $('wLabel').textContent = paused ? 'перерыв' : 'в фокусе';
+  $('wTask').textContent  = curTask || '';
+  $('wSub').textContent   = ses.count
+    ? plural(ses.count,'отвлечение','отвлечения','отвлечений') + ' · потеряно ' + mmss(ses.lost)
+    : 'Ни одного отвлечения';
   $('sesTime').textContent = mmss(total);
   $('sesCnt').textContent  = ses.count;
   $('sesCntW').textContent = plural(ses.count,'отвлечение','отвлечения','отвлечений').split(' ')[1];
@@ -1460,7 +1753,7 @@ let canStore=false;
 try{ localStorage.setItem('fg.test','1'); localStorage.removeItem('fg.test'); canStore=true; }catch(e){}
 
 const SKEY='focusguard.v1';
-const FLAGS=['tSide','tDown','tDownHead','tHead','tShut','tGone','tPhEye','tPhHead'];
+const FLAGS=['tSide','tUp','tDown','tDownHead','tHead','tShut','tGone','tPhEye','tPhHead'];
 function saveCfg(){ try{
   const o={delay:$('delay').value, sens:$('sens').value, phLvl:$('phLvl').value, goal:$('goal').value};
   FLAGS.forEach(i=>o[i]=$(i).checked);
@@ -1481,9 +1774,9 @@ const setPh = () => {
 /* Режим — это не новая логика, а готовый набор тех же тумблеров. Трекер не знает,
    что режимы существуют: он по-прежнему читает только галки и ползунки. */
 const MODES={
-  soft:  {tDown:1,tDownHead:1,tGone:1,tSide:0,tHead:0,tShut:0,tPhEye:1,tPhHead:0,sens:2,phLvl:2,delay:8},
-  normal:{tDown:1,tDownHead:1,tGone:1,tSide:0,tHead:0,tShut:0,tPhEye:1,tPhHead:1,sens:3,phLvl:3,delay:5},
-  hard:  {tDown:1,tDownHead:0,tGone:1,tSide:1,tHead:1,tShut:0,tPhEye:1,tPhHead:1,sens:4,phLvl:5,delay:2.5}
+  soft:  {tDown:1,tDownHead:1,tGone:1,tSide:0,tUp:0,tHead:0,tShut:0,tPhEye:1,tPhHead:0,sens:2,phLvl:2,delay:8},
+  normal:{tDown:1,tDownHead:1,tGone:1,tSide:0,tUp:1,tHead:0,tShut:0,tPhEye:1,tPhHead:1,sens:3,phLvl:3,delay:5},
+  hard:  {tDown:1,tDownHead:0,tGone:1,tSide:1,tUp:1,tHead:1,tShut:0,tPhEye:1,tPhHead:1,sens:4,phLvl:5,delay:2.5}
 };
 const MODE_TEXT={
   soft:'Срабатывает только на явное: вы ушли из кадра или смотрите вниз с наклонённой головой. Терпение — 8 секунд.',
@@ -1493,7 +1786,7 @@ const MODE_TEXT={
 };
 function applyMode(k){
   const m=MODES[k]; if(!m) return;
-  for(const f of ['tDown','tDownHead','tGone','tSide','tHead','tShut','tPhEye','tPhHead'])
+  for(const f of ['tDown','tDownHead','tGone','tSide','tUp','tHead','tShut','tPhEye','tPhHead'])
     $(f).checked = !!m[f];
   $('sens').value=m.sens; $('phLvl').value=m.phLvl; $('delay').value=m.delay;
   setSens(); saveCfg(); markMode();
@@ -1502,7 +1795,7 @@ function currentMode(){
   for(const k of Object.keys(MODES)){ const m=MODES[k];
     let hit = +$('sens').value===m.sens && +$('phLvl').value===m.phLvl
            && parseFloat($('delay').value)===m.delay;
-    if(hit) for(const f of ['tDown','tDownHead','tGone','tSide','tHead','tShut','tPhEye','tPhHead'])
+    if(hit) for(const f of ['tDown','tDownHead','tGone','tSide','tUp','tHead','tShut','tPhEye','tPhHead'])
       if($(f).checked !== !!m[f]){ hit=false; break; }
     if(hit) return k;
   }
@@ -1657,8 +1950,11 @@ function loop(){
     $('wPr').style.width=Math.min(100,(1-left/5000)*100)+'%';
     if(!cocoRun && coco && small.width && now-cocoTick>300){
       cocoTick=now; cocoRun=true; cocoStart=now;
-      const snap=document.createElement('canvas'); snap.width=small.width; snap.height=small.height;
-      snap.getContext('2d').drawImage(small,0,0);
+      /* Тот же полный кадр, что и в работе: обучись на мелкой копии —
+         и записанный порог не сойдётся с боевыми значениями. */
+      const snap=document.createElement('canvas');
+      snap.width=video.videoWidth; snap.height=video.videoHeight;
+      snap.getContext('2d').drawImage(video,0,0);
       coco.detect(snap, 6, 0.15).then(d=>{
         const ph=d.filter(o=>o.class==='cell phone').sort((a,b)=>b.score-a.score)[0];
         if(ph && (!phTrain.best || ph.score>phTrain.best.score))
@@ -1669,9 +1965,12 @@ function loop(){
     if(left<=0){ finishPhoneTrain(); }
     }
   }
-  else if($('tCam').checked && coco && !cocoRun && now-cocoTick>450 && small.width){
+  else if($('tCam').checked && coco && !cocoRun && now-cocoTick>450 && video.videoWidth){
     cocoTick=now; cocoRun=true; cocoStart=now;
-    coco.detect(small, 6, phThr()).then(d=>{
+    /* Ищем в ПОЛНОМ кадре, а не в копии 480 px, которую делали для лица:
+       телефон там занимал около сотни пикселей, и модель его теряла.
+       Двойное уменьшение (1280 → 480 → размер модели) съедало детали. */
+    coco.detect(video, 6, phThr()).then(d=>{
       if(d.some(o=>o.class==='cell phone')) phoneAt=performance.now();
       cocoRun=false;
     }).catch(()=>{ cocoRun=false; });
@@ -1723,7 +2022,8 @@ function loop(){
     // измерение границ экрана: запоминаем самый дальний угол, куда доставал взгляд
     if(scrTrain && !blink){ scrTrain.n++;
       scrTrain.s=Math.max(scrTrain.s, Math.abs(dS));
-      scrTrain.d=Math.max(scrTrain.d, dD); }
+      scrTrain.d=Math.max(scrTrain.d, dD);
+      scrTrain.u=Math.max(scrTrain.u, -dD); }   // верхний край: тот же dD, только со знаком минус
     // во время обучения копим образцы поз, ничего не срабатывает
     if(train){
       const st=STEPS[train.i];
@@ -1746,6 +2046,9 @@ function loop(){
       : (dD>thDown() && (!$('tDownHead').checked || dP>th[3]));
     const bD=$('tDown').checked && !blink && !headUp && phone;
     const bH=$('tHead').checked && Math.abs(dH)>th[2];
+    // взгляд поверх монитора: второй экран, стена, потолок. Порог берётся из
+    // обучения границ, поэтому взгляд на верхнюю кромку рамки не считается
+    const bU=$('tUp').checked && !blink && (-dD)>thUp();
 
     // два новых пункта: поза сама по себе не считается, нужна ещё и часть телефона в кадре.
     // пороги мягче обычных — раз аппарат виден, сильно отворачиваться не требуется
@@ -1754,8 +2057,9 @@ function loop(){
               ((dD>thDown()*k && !headUp) || Math.abs(dS)>thSide()*k);
     const bPH=$('tPhHead').checked && seen && Math.abs(dH)>th[2]*k;
     const bB=$('tShut').checked && (m.shut-base.shut)>SHUT;
-    ok=!(bS||bD||bH||bB||bPE||bPH);
-    why = (bPE||bPH)?'телефон в руках' : bS?'взгляд ушёл в сторону' : bD?'смотрите вниз' : bH?'голова отвернулась' : bB?'глаза закрыты' : '';
+    ok=!(bS||bD||bU||bH||bB||bPE||bPH);
+    why = (bPE||bPH)?'телефон в руках' : bS?'взгляд ушёл в сторону' : bD?'смотрите вниз'
+        : bU?'взгляд ушёл вверх' : bH?'голова отвернулась' : bB?'глаза закрыты' : '';
     draw(res.faceLandmarks[fi], calib?'#7d9bff' : ok?'#39e08a' : '#ff3b5c');
   }
 
@@ -1851,12 +2155,14 @@ async function start(){
     video.srcObject=stream; await video.play();
 
     $('idle').classList.add('gone'); btn.textContent='Запустить';
+    demoStop();                      // превью не должно крутиться рядом с детекцией
     $('bar').classList.add('on');
     $('stop').disabled=$('setupAll').disabled=$('learnPh').disabled=false;
     running=true; fpsT=performance.now();
     ses={start:performance.now(),count:0,lost:0,longest:0,paused:0}; events=[];
     paused=false; $('pause').textContent='Перерыв'; $('pause').classList.remove('on');
-    buildGauges(); drawStats(); drawHud(); $('hud').classList.add('on');
+    buildGauges(); drawStats(); drawHud();
+    $('wCam').classList.add('on'); setCamShown(camShown);
     /* Автозамера при старте больше нет: база берётся с диска. Он остаётся только
        как страховка для того, кто настройку пропустил, — иначе пороги не от чего
        считать и приложение будет врать. */
@@ -1887,6 +2193,7 @@ function stopAll(){
   ctx.clearRect(0,0,cv.width,cv.height);
   closeAsk(); curTask=''; curPlan=''; $('task').classList.remove('on');
   $('bar').classList.remove('on'); closeSheet(); $('hud').classList.remove('on');
+  $('work').classList.remove('on'); $('wCam').classList.remove('on');
   $('veil').classList.remove('on'); $('tb').style.width='0';
   $('stop').disabled=$('setupAll').disabled=$('learnPh').disabled=true;
   if(ses.start){
@@ -1898,6 +2205,7 @@ function stopAll(){
     $('lede').classList.add('sum');
   }
   $('idle').classList.remove('gone');
+  demoStep();
   $('go').disabled=false; $('go').textContent='Запустить';
 }
 
@@ -1952,10 +2260,13 @@ let reactGif=null;
 
 const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function renderShelf(cat){
+  /* --i задаёт ступеньку появления; дальше 11-й плитки не растём, иначе
+     на «Все» последняя выезжала бы почти через секунду после первой. */
+  const step = i => ' style="--i:'+Math.min(i,11)+'"';
   $('rShelf').innerHTML =
-    '<button type="button" class="tile" data-f=""><em>ГЛАЗА</em><span>Просто надпись</span></button>' +
-    REACTS.filter(r => cat==='all' || r[2]===cat).map(r =>
-      '<button type="button" class="tile" data-f="'+esc(r[0])+'">' +
+    '<button type="button" class="tile"'+step(0)+' data-f=""><em>ГЛАЗА</em><span>Просто надпись</span></button>' +
+    REACTS.filter(r => cat==='all' || r[2]===cat).map((r,i) =>
+      '<button type="button" class="tile"'+step(i+1)+' data-f="'+esc(r[0])+'">' +
       '<img src="reactions/'+esc(r[0])+'.jpg" alt="" loading="lazy" draggable="false">' +
       '<span>'+esc(r[1])+'</span></button>').join('');
   markShelf();
@@ -2214,12 +2525,18 @@ function drawChart(){
   } else if(empty) empty.remove();
   /* За что чаще всего ловит — главный вопрос, когда трекер врёт. */
   const log=readLog(), from=Date.now()-(R.days?R.days*86400000:R.mins*60000);
-  const cnt={}, md={};
-  for(const e of log) if(e.t>=from){ if(e.r) cnt[e.r]=(cnt[e.r]||0)+1; if(e.m) md[e.m]=(md[e.m]||0)+1; }
+  const cnt={}, dur={}, md={};
+  for(const e of log) if(e.t>=from){
+    if(e.r){ cnt[e.r]=(cnt[e.r]||0)+1; dur[e.r]=(dur[e.r]||0)+(e.d||0); }
+    if(e.m) md[e.m]=(md[e.m]||0)+1; }
   const byReason=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
   const allFires=byReason.reduce((s,x)=>s+x[1],0);
+  /* Средняя длительность отличает сбой детектора от настоящего ухода: полсекунды —
+     моргнул детектор, полминуты — человек действительно вставал. Без неё
+     «вас нет в кадре — 8» не говорит ничего. */
   $('stWhy').innerHTML = byReason.length
-    ? 'За что ловит: ' + byReason.slice(0,3).map(x=>`<b>${x[0]}</b> — ${x[1]}`).join(', ')
+    ? 'За что ловит: ' + byReason.slice(0,3).map(x=>
+        `<b>${x[0]}</b> — ${x[1]}, в среднем ${durText(dur[x[0]]/x[1])}`).join('; ')
       + (allFires?` (всего ${allFires})`:'')
       + (Object.keys(md).length ? '. Режим: '+Object.entries(md).sort((a,b)=>b[1]-a[1])[0][0] : '')
     : '';
@@ -2258,8 +2575,12 @@ function markRange(){
 document.querySelectorAll('#stRange button').forEach(x=>
   x.addEventListener('click',()=>{ stRange=x.dataset.r; markRange(); drawChart(); }));
 
-function openStats(){ markRange(); drawGoal(); drawChart(); $('stats').classList.add('on'); }
-function closeStats(){ $('stats').classList.remove('on'); $('stats').classList.remove('shown'); }
+/* liveOn включал живое обновление цифр только при открытой панели. Плитки
+   «этой сессии» переехали сюда, поэтому обновлять надо и при открытом Графике —
+   иначе они замерли бы на значениях момента открытия. */
+function openStats(){ markRange(); drawGoal(); drawChart(); drawStats();
+  liveOn=true; $('stats').classList.add('on'); }
+function closeStats(){ liveOn=false; $('stats').classList.remove('on'); $('stats').classList.remove('shown'); }
 $('stClose').addEventListener('click',closeStats);
 
 /* подсказка при наведении — dataviz требует слой наведения по умолчанию */
@@ -2381,10 +2702,11 @@ $('task').addEventListener('click',openAsk);
 
 $('goal').addEventListener('input',()=>{ if($('stats').classList.contains('on')) drawGoal(); });
 $('pause').addEventListener('click',()=>setPaused(!paused));
+$('wCam').addEventListener('click',()=>setCamShown(!camShown));
 /* ---------- меню по шестерёнке ----------
    Раньше шестерёнка открывала настройки напрямую. Разделов стало больше одного,
    поэтому она открывает меню, а настройки — такой же его пункт, как остальные. */
-const LAYERS=['prof','acc','frn'];
+const LAYERS=['react','prof','acc','frn'];
 const menuOpen = () => $('menu').classList.contains('on');
 function closeMenu(){ $('menu').classList.remove('on'); $('menu').setAttribute('aria-hidden','true'); }
 function openMenu(){ $('menu').classList.add('on'); $('menu').setAttribute('aria-hidden','false'); }
@@ -2398,6 +2720,7 @@ $('menu').addEventListener('click',e=>{
   if(b.dataset.go==='settings'){ closeLayers(); closeStats(); openSheet(); return; }
   if(b.dataset.go==='stats'){ closeSheet(); closeLayers(); openStats(); return; }
   if(b.dataset.go==='prof') drawProfile();
+  if(b.dataset.go==='acc'){ gInit(); gShow(); }
   openLayer(b.dataset.go);
 });
 document.addEventListener('click',e=>{
@@ -2435,29 +2758,98 @@ function streak(){
   }
   return n;
 }
+/* Своё фото важнее гугловского: человек поставил его руками. Хранится
+   уменьшенным до 200 px в localStorage — туда влезает около 5 МБ на всё,
+   а исходник с телефона весит больше этого целиком. */
+const AVAKEY='focusguard.avatar';
+const avaRead = () => { try{ return localStorage.getItem(AVAKEY)||''; }catch(e){ return ''; } };
 function setAva(){
-  const v=($('pName').value||'').trim();
-  $('pAva').textContent = v ? v[0].toUpperCase() : '—';
+  const own=avaRead(), u=gRead(), v=($('pName').value||'').trim();
+  const pic = own || (u && u.picture) || '';
+  const box=$('pAva'), file=$('pFile');
+  box.textContent = pic ? '' : (v ? v[0].toUpperCase() : '—');
+  if(pic){ const im=new Image(); im.src=pic; im.alt=''; im.referrerPolicy='no-referrer'; box.appendChild(im); }
+  box.appendChild(file);                       // поле выбора живёт внутри — не потерять при перерисовке
+  const del=$('pAvaDel'); if(del) del.hidden = !own;
+}
+/* Ужимаем до квадрата 200 px «по обрезке», как object-fit:cover, и переводим
+   в jpeg — иначе фото с телефона переполнит хранилище и вместе с ним слетят
+   настройки, статистика и журнал. */
+function avaFromFile(f){
+  const url=URL.createObjectURL(f), im=new Image();
+  im.onload=()=>{
+    const S=200, c=document.createElement('canvas'); c.width=c.height=S;
+    const x=c.getContext('2d');
+    const k=Math.max(S/im.width, S/im.height), w=im.width*k, h=im.height*k;
+    x.drawImage(im, (S-w)/2, (S-h)/2, w, h);
+    URL.revokeObjectURL(url);
+    try{ localStorage.setItem(AVAKEY, c.toDataURL('image/jpeg', 0.82)); }
+    catch(e){ alert('Не удалось сохранить фото — в браузере кончилось место.'); }
+    setAva();
+  };
+  im.onerror=()=>{ URL.revokeObjectURL(url); alert('Это не похоже на картинку.'); };
+  im.src=url;
 }
 function drawProfile(){
   const all=allDays(), keys=Object.keys(all);
-  const sat=keys.reduce((a,k)=>a+(all[k].sat||0),0);
+  const sat =keys.reduce((a,k)=>a+(all[k].sat ||0),0);
   const lost=keys.reduce((a,k)=>a+(all[k].lost||0),0);
-  const cnt=keys.reduce((a,k)=>a+(all[k].count||0),0);
+  const cnt =keys.reduce((a,k)=>a+(all[k].count||0),0);
   const best=keys.filter(k=>all[k].sat).sort((a,b)=>(all[b].sat||0)-(all[a].sat||0))[0];
+  const st=streak();
+
+  /* Дни и серия ушли под имя: это про человека, а не про результат.
+     Так наверху остаётся одна главная цифра, а не шесть равных. */
+  $('pSub').textContent = keys.length
+    ? plural(keys.length,'день','дня','дней') + (st>1 ? ' · серия ' + st : '')
+    : 'Ещё ни одной сессии';
+
+  if(!keys.length){
+    $('pBody').innerHTML =
+      '<div class="empty">' +
+      '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true">' +
+      '<path d="M3 12.6V7.4M8 12.6V3.4M13 12.6V9.4" stroke="currentColor" ' +
+      'stroke-width="1.3" stroke-linecap="round"/></svg>' +
+      '<b>Здесь появится ваша статистика</b>' +
+      '<p>Запустите первую сессию — и тут будет видно, сколько времени вы просидели ' +
+      'в фокусе, сколько потеряли и какой день вышел лучшим.</p></div>';
+    return;
+  }
+
+  /* Сетка года: столбец — неделя, строка — день недели (понедельник сверху).
+     Ключи дней в UTC, поэтому и шагаем по UTC — иначе в UTC+3 всё съедет на сутки. */
+  const LV=[30,60,120];                        // минуты: границы ступеней яркости
+  const end=new Date();
+  end.setUTCDate(end.getUTCDate() + (6-((end.getUTCDay()+6)%7)));   // конец текущей недели
+  const grid=[];
+  for(let i=363;i>=0;i--){
+    const d=new Date(end); d.setUTCDate(d.getUTCDate()-i);
+    const k=d.toISOString().slice(0,10), rec=all[k];
+    const min=rec ? (rec.sat||0)/60000 : 0;
+    const lvl = !min ? 0 : min<LV[0] ? 1 : min<LV[1] ? 2 : min<LV[2] ? 3 : 4;
+    grid.push('<i data-l="'+lvl+'" title="'+k+(rec?' — '+esc(durText(rec.sat||0)):' — пусто')+'"></i>');
+  }
+
   const cells=[
-    [durText(sat),  'всего в фокусе'],
-    [durText(lost), 'всего потеряно'],
+    [durText(lost), 'потеряно'],
     [String(cnt),   plural(cnt,'отвлечение','отвлечения','отвлечений').split(' ').slice(1).join(' ')],
-    [String(keys.length), plural(keys.length,'день','дня','дней').split(' ').slice(1).join(' ')],
-    [String(streak()), plural(streak(),'день подряд','дня подряд','дней подряд').split(' ').slice(1).join(' ')],
     [best ? durText(all[best].sat) : '—', 'лучший день']
   ];
-  $('pGrid').innerHTML = cells.map(c=>
-    '<div class="pCell"><b>'+esc(c[0])+'</b><span>'+esc(c[1])+'</span></div>').join('');
+  $('pBody').innerHTML =
+    '<div class="pHero"><b>'+esc(durText(sat))+'</b><span>всего в фокусе</span></div>' +
+    '<div class="pGrid" style="margin-top:26px">' +
+    cells.map(c=>'<div class="pCell"><b>'+esc(c[0])+'</b><span>'+esc(c[1])+'</span></div>').join('') +
+    '</div>' +
+    '<p class="lbl">Год</p>' +
+    '<div class="year">' + grid.join('') + '</div>' +
+    '<div class="yearLeg">меньше<i></i><i data-l="1"></i><i data-l="2"></i>' +
+    '<i data-l="3"></i><i data-l="4"></i>больше</div>';
 }
+
 try{ $('pName').value = localStorage.getItem(NKEY)||''; }catch(e){}
 setAva();
+$('pFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) avaFromFile(f); e.target.value=''; });
+$('pAvaDel').addEventListener('click',()=>{ try{ localStorage.removeItem(AVAKEY); }catch(e){} setAva(); });
 $('pName').addEventListener('input',()=>{ setAva();
   try{ localStorage.setItem(NKEY, $('pName').value.trim()); }catch(e){} });
 
@@ -2500,6 +2892,123 @@ $('accWipe').addEventListener('click',()=>{
   Object.keys(allData()).forEach(k=>localStorage.removeItem(k));
   $('accInfo').textContent='Стёрто. Обновите страницу.';
 });
+
+/* ---------- вход через Google ----------
+   Сервера нет, поэтому токен НИКТО НЕ ПРОВЕРЯЕТ: он разбирается только ради имени
+   и фотографии. Подделать его можно, но за ним ничего не стоит — ни чужих данных,
+   ни прав. Как только появится сервер, проверку подписи делать обязательно.
+
+   Скрипт Google подгружается лениво, при первом открытии «Аккаунта», а не при
+   загрузке приложения: пока раздел не открыли, наружу не уходит ни одного запроса.
+   Это то же обещание, что и «0 кадров наружу» на стартовом экране. */
+let gLoaded=false;
+function gRead(){ try{ return JSON.parse(localStorage.getItem(GKEY)||'null'); }catch(e){ return null; } }
+function gShow(){
+  const u=gRead();
+  /* Если Client ID убрали, а человек уже вошёл — раздел всё равно показываем,
+     иначе выйти было бы нечем. */
+  $('gBox').hidden = !GOOGLE_ID && !u;
+  $('gIn').hidden  = !u;
+  $('gBtn').hidden = !!u;
+  if(u){
+    $('gName').textContent=u.name||'';
+    $('gMail').textContent=u.email||'';
+    $('gPic').hidden=!u.picture;
+    if(u.picture) $('gPic').src=u.picture;
+  }
+  setAva();
+}
+/* Своя расшифровка, а не atob напрямую: имя приходит в UTF-8,
+   и «Роман» без TextDecoder превратился бы в кашу. */
+function jwtBody(t){
+  const b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  const bin=atob(b), arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return JSON.parse(new TextDecoder().decode(arr));
+}
+function gDone(res){
+  try{
+    const p=jwtBody(res.credential);
+    const u={name:p.name||'', email:p.email||'', picture:p.picture||'', sub:p.sub||''};
+    try{ localStorage.setItem(GKEY, JSON.stringify(u)); }catch(e){}
+    if(u.name && !($('pName').value||'').trim()){       // имя подставляем, но не затираем своё
+      $('pName').value=u.name;
+      try{ localStorage.setItem(NKEY, u.name); }catch(e){}
+    }
+    $('gNote').textContent='';
+    gShow();
+  }catch(e){ $('gNote').textContent='Не удалось разобрать ответ Google.'; }
+}
+function gInit(){
+  if(gLoaded || !GOOGLE_ID) return;
+  gLoaded=true;
+  const sc=document.createElement('script');
+  sc.src='https://accounts.google.com/gsi/client'; sc.async=true;
+  sc.onload=()=>{
+    try{
+      google.accounts.id.initialize({client_id:GOOGLE_ID, callback:gDone, auto_select:false});
+      google.accounts.id.renderButton($('gBtn'),
+        {theme:'filled_black', size:'large', shape:'pill', text:'signin_with', locale:'ru'});
+      $('gNote').textContent='';
+    }catch(e){
+      $('gNote').textContent='Google не принял Client ID — проверьте его и разрешённые источники.';
+    }
+  };
+  sc.onerror=()=>{ $('gNote').textContent='Скрипт Google не загрузился.'; };
+  document.head.appendChild(sc);
+}
+$('gOut').addEventListener('click',()=>{
+  try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+  try{ localStorage.removeItem(GKEY); }catch(e){}
+  gShow();
+});
+
+/* ---------- превью на стартовом экране ----------
+   Страница показывает то, ради чего приложение существует: взгляд уехал —
+   реакция влетает на экран. Берём готовые файлы из reactions, самые лёгкие,
+   и подгружаем по одному: на первый показ уходит около 110 КБ, а не вся полка.
+
+   Таймер обязательно снимается при старте слежения: анимированный webp
+   продолжал бы крутиться за скрытым экраном и отъедать кадры у детекции. */
+const DEMO=['eyeroll','wolf','money'];
+let demoN=0, demoT=null;
+/* «Уменьшить движение» гасило css-переходы, но не сам цикл: гифки продолжали
+   меняться и крутиться. Теперь при этой настройке показываем ОДИН неподвижный
+   кадр — обложку .jpg, которая и так лежит рядом. */
+const stillOnly = matchMedia('(prefers-reduced-motion: reduce)');
+/* Цикл КОНЕЧНЫЙ: каждая реакция показывается дважды, потом кадр замирает.
+   Две причины, обе настоящие:
+   1) единственная кнопка на странице не должна вечно соперничать с движением —
+      движение выигрывает внимание всегда;
+   2) WCAG 2.2.2: автозапуск движения дольше 5 секунд обязан когда-то кончаться.
+   На последнем показе сразу ставим неподвижную обложку .jpg, а не .webp —
+   тогда нет скачка от середины анимации к первому кадру при замирании. */
+const DEMO_LOOPS=2;
+function demoStep(){
+  const scr=$('scr');
+  if(stillOnly.matches){
+    $('demoImg').src='reactions/'+DEMO[0]+'.jpg';
+    scr.classList.add('hit'); $('demoTag').textContent='взгляд ушёл';
+    return;
+  }
+  const name=DEMO[demoN++%DEMO.length];
+  const last=demoN>=DEMO.length*DEMO_LOOPS;
+  $('demoImg').src='reactions/'+name+(last?'.jpg':'.webp');
+  demoT=setTimeout(()=>{
+    scr.classList.add('hit'); $('demoTag').textContent='взгляд ушёл';
+    if(last) return;                       // замерли на реакции — так понятнее, чем на пустой рамке
+    demoT=setTimeout(()=>{
+      scr.classList.remove('hit'); $('demoTag').textContent='взгляд на экране';
+      demoT=setTimeout(demoStep, 1000);
+    }, 2700);
+  }, 2300);
+}
+function demoStop(){
+  clearTimeout(demoT); demoT=null; demoN=0;
+  $('scr').classList.remove('hit'); $('demoTag').textContent='взгляд на экране';
+  $('demoImg').removeAttribute('src');
+}
+demoStep();
 
 /* ---------- друзья ---------- */
 $('frnCopy').addEventListener('click',async()=>{
