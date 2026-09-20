@@ -51,7 +51,7 @@
 <meta name="twitter:image" content="https://roman-avilov.github.io/focus-guard/preview.jpg">
 <style>
   :root{
-    --ok:#30d158; --warn:#ff9f0a; --bad:#ff453a;
+    --ok:#30d158; --ok-rgb:48,209,88; --warn:#ff9f0a; --bad:#ff453a;
     /* Акцент. Системный фиолетовый Apple: контраст 5.96:1 на чёрном и ни одного
        столкновения с занятыми оттенками (зелёный — норма, оранжевый — внимание,
        красный — опасно). Синий #0a84ff читался как встроенная утилита системы.
@@ -59,21 +59,24 @@
        в одиннадцати местах руками и переменную не подхватывал. Теперь смена
        акцента — правка ровно двух строк. */
     --acc:#0a84ff; --acc-rgb:10,132,255;
+    /* Базовый цвет подложек и волосяных линий. Белый — «светлое поверх тёмного».
+       В светлых разделах становится чёрным, и все подложки переворачиваются
+       разом, без правки каждой из шестидесяти. */
+    --on:255,255,255;
+    /* Цвет текста поверх заливки --ink. В тёмной теме подложка светлая,
+       значит текст чёрный; в светлых разделах переопределяется на белый. */
+    --ink-on:#000;
+    --card:rgba(255,255,255,.05); --page:#000;
     --ink:#f5f5f7; --mut:#8e8e93;
     /* #6e6e73 давал 4.14:1 на чёрном при норме WCAG AA 4.5 — и именно им набран
        весь мелкий пояснительный текст, включая строку «За что ловит». 4.65:1. */
     --mut2:#76767b;
-    --glass:rgba(10,13,18,.58); --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.06);
+    --glass:rgba(10,13,18,.58); --line:rgba(var(--on),.10); --line2:rgba(var(--on),.06);
     --spring:cubic-bezier(.32,.72,0,1);       /* мягкий выход, без перелёта */
     --ease-out:cubic-bezier(.23,1,.32,1);     /* сильный ease-out для появления */
     --press:110ms cubic-bezier(.25,.1,.25,1); /* отклик на нажатие — почти мгновенный */
     --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
 
-    /* Светлая палитра стартового экрана. Живёт ЗДЕСЬ, а не на #idle:
-       шапка #bar лежит вне #idle и переменные оттуда не наследует —
-       объявление становилось недействительным, и цвет не менялся. */
-    --l-ink:#0b0b0c; --l-mut:#55565a; --l-mut2:#8b8c90;
-    --l-card:#f7f7f5; --l-line:rgba(0,0,0,.07);
 
     /* Шкала кеглей в rem: 1rem = системный размер шрифта, по умолчанию 16px.
        Человек увеличил шрифт в настройках — интерфейс вырос вместе с ним.
@@ -161,8 +164,14 @@
 
      Светлые цвета заперты ВНУТРИ #idle своими переменными. Глобальные
      --ink/--mut/--mut2 не трогаем: на них держится весь тёмный интерфейс. */
+  /* Стекло настроено под чёрный фон: при .58 белый стартовый экран просвечивает
+     насквозь, и светлый текст на панелях пропадает — меню, список языков
+     и настройки становились нечитаемыми. Пока светлый экран виден, стекло
+     держит своё тёмное поле. Во время слежения оно снова прозрачное: там
+     под ним камера, и стекло как раз к месту.
+     :has() не поддержан — откатывается на прежнее поведение, не ломается. */
   #idle{position:fixed;inset:0;z-index:1;display:flex;overflow-y:auto;
-    background:#fff;color:var(--l-ink);transition:opacity .5s ease}
+    background:var(--page);color:var(--ink);transition:opacity .5s ease}
   /* visibility обязательна: без неё анимированный webp превью продолжает
      крутиться под opacity:0 — рядом с детекцией это отнятые кадры. */
   #idle.gone{opacity:0;pointer-events:none;visibility:hidden;
@@ -172,15 +181,25 @@
      переключатель и шестерёнка почти белые — на белом они исчезли бы.
      Пока слежение не идёт, красим их в тёмное. Состояния синхронны:
      .on снимается ровно тогда же, когда с #idle снимается .gone. */
-  #bar:not(.on) #brand{color:var(--l-ink)}
+  #bar:not(.on) #brand{color:var(--ink)}
   #bar:not(.on) #gear{
-    color:var(--l-ink);background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.10);
+    color:var(--ink);background:rgba(var(--on),.06);border-color:rgba(var(--on),.12);
     backdrop-filter:none;-webkit-backdrop-filter:none}
-  #bar:not(.on) #gear:hover{background:rgba(0,0,0,.09)}
+  #bar:not(.on) #gear:hover{background:rgba(var(--on),.11)}
   #bar:not(.on) #lang{
-    color:var(--l-ink);background:rgba(0,0,0,.05);border-color:rgba(0,0,0,.10);
+    color:var(--ink);background:rgba(var(--on),.06);border-color:rgba(var(--on),.12);
     backdrop-filter:none;-webkit-backdrop-filter:none}
-  #bar:not(.on) #lang:hover{background:rgba(0,0,0,.09)}
+  #bar:not(.on) #lang:hover{background:rgba(var(--on),.11)}
+
+  /* Шапка собирается по одному знаку — это первое, что видно на странице.
+     Заливка backwards, а НЕ both: both приморозил бы opacity и transform
+     навсегда, а на них держится и скрытие приборов, и отклик на нажатие.
+     Ровно та ловушка с весом правил, из-за которой «Перерыв» однажды
+     не показывался всю сессию. */
+  #bar #brand,#bar #lang,#bar #gear{
+    animation:rise .52s cubic-bezier(.22,.68,0,1) backwards}
+  #bar #brand{animation-delay:.02s} #bar #lang{animation-delay:.08s}
+  #bar #gear{animation-delay:.14s}
 
   .hero{position:relative;margin:auto;width:100%;max-width:74rem;
     padding:clamp(76px,9vh,104px) clamp(20px,5vw,40px) clamp(48px,7vh,80px)}
@@ -188,23 +207,72 @@
   .phero>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
   #idle h1{animation-delay:.04s} .lede{animation-delay:.12s}
   .cta{animation-delay:.2s} .perm{animation-delay:.26s}
-  .pcards{animation:rise .74s cubic-bezier(.22,.68,0,1) both .3s}
   @keyframes rise{from{opacity:0;transform:translateY(14px)}}
+
+  /* ---------- появление по мере прокрутки ----------
+     Раньше три карточки выезжали ОДНИМ блоком по таймеру, а год под ними
+     не появлялся вовсе: он ниже сгиба, и к моменту, когда до него
+     доскроллишь, он уже давно стоит на месте. Страница от этого читалась
+     мёртвой ровно там, где должна показывать продукт.
+     Теперь каждый кусок встаёт, когда до него дошли.
+     Это живёт ТОЛЬКО на стартовом экране: там камера ещё не запущена
+     и кадры свободны. В работе ничего подобного не вешаем — та же причина,
+     по которой запрещено полноэкранное размытие. */
+  .rv{opacity:0;transform:translateY(24px);
+    transition:opacity .62s cubic-bezier(.22,.68,0,1),
+               transform .68s cubic-bezier(.22,.68,0,1);
+    transition-delay:var(--rvd,0ms)}
+  .rv.in{opacity:1;transform:none}
 
   /* Плакатный кегль — одно из немногих мест вне шкалы, см. CLAUDE.md.
      Крупнее и ПЛОТНЕЕ прежнего: у Notion заголовок 96px при трекинге −4.6px,
      и именно плотность делает его дорогим, а не размер. */
-  #idle h1{font-size:clamp(2.6rem,7vw,5.25rem);font-weight:620;line-height:1.02;
-    letter-spacing:-.048em;color:var(--l-ink);text-wrap:balance}
+  /* Нижний конец убавлен с 2.6rem: в заголовке теперь сменяется слово, и самое
+     длинное («экспериментировать», 18 букв) при 2.6rem не влезало на 375 px —
+     вылезало на 86 px и давало прокрутку вбок. Разрывать слово нельзя: оно
+     лежит в плашке. */
+  #idle h1{font-size:clamp(1.8rem,7vw,5.25rem);font-weight:620;line-height:1.26;
+    letter-spacing:-.048em;color:var(--ink);text-wrap:balance}
   /* Цветное пятно ровно одно на весь экран — вокруг одного слова.
      Приём Notion: цвета мало, поэтому он и читается как «подобранный». */
-  .pmark{display:inline-flex;align-items:center;gap:.26em;
-    background:#ffe9a8;border-radius:999px;padding:.02em .34em .08em}
-  .pmark i{width:.32em;height:.32em;border-radius:50%;background:#f0a90c;flex:none}
+  /* Подложка всегда жёлтая, значит и текст в ней всегда тёмный —
+     иначе в тёмной теме слово становится светлым на светлом. */
+  /* Маркер ПРОЧЕРЧИВАЕТСЯ поверх слова, а не стоит готовым: это единственное
+     цветное пятно на экране, и взгляд должен прийти к нему последним.
+     background-size не уходит на композитор, но это ОДИН элемент и один раз,
+     на экране, где детекция ещё не запущена. */
+  .pmark{display:inline;color:#0b0b0c;
+    /* Начертание легче, чем у заголовка (620): Роман попросил тоньше,
+       и на жёлтом тонкое читается лучше — подложка сама добавляет плотности. */
+    font-weight:480;letter-spacing:-.034em;
+    background-image:linear-gradient(var(--markbg,#ffe9a8),var(--markbg,#ffe9a8));
+    background-repeat:no-repeat;
+    background-size:0% 100%;
+    animation:pmarkIn .54s cubic-bezier(.22,.68,0,1) .46s forwards;
+    border-radius:.2em;padding:0 .22em .03em;
+    /* Точка и слово — одно целое. Без этого перенос строки разрывал плашку
+       между <i> и текстом: точка уезжала жёлтым квадратиком на строку выше. */
+    white-space:nowrap;
+    -webkit-box-decoration-break:clone;box-decoration-break:clone}
+  @keyframes pmarkIn{to{background-size:100% 100%}}
+  /* Точка появляется после маркера — крошечный отскок на ЕДИНСТВЕННОМ
+     цветном пятне страницы, больше нигде такой упругости нет. */
+  /* Точка была элементом flex-раскладки; после перехода на display:inline
+     ей нужен свой inline-block и отступ вместо gap. */
+  /* Слово сменяется растворением, без сдвига: это не движение, а подмена.
+     Цвет плашки меняется в тот же миг, когда слово невидимо, — поэтому
+     переход цвета не нужен и градиент никуда не «переливается». */
+  #rotWord{display:inline-block;transition:opacity .34s ease}
+  #rotWord.out{opacity:0}
+  .pmark i{display:inline-block;vertical-align:.12em;
+    width:.26em;height:.26em;border-radius:50%;background:var(--markdot,#f0a90c);
+    margin-right:.24em;
+    transform:scale(0);animation:pmarkDot .36s cubic-bezier(.34,1.56,.64,1) .92s forwards}
+  @keyframes pmarkDot{to{transform:scale(1)}}
 
-  .lede{margin:24px auto 0;max-width:52ch;color:var(--l-mut);text-wrap:pretty;
+  .lede{margin:24px auto 0;max-width:52ch;color:var(--mut);text-wrap:pretty;
     font-size:var(--t5);line-height:1.5;letter-spacing:-.008em}
-  .lede b{color:var(--l-ink);font-weight:520}
+  .lede b{color:var(--ink);font-weight:520}
   .lede.sum{max-width:40ch;color:var(--mut);font-size:var(--t6);line-height:1.8}
   .lede.sum b{color:var(--ink);font-weight:590;font-variant-numeric:tabular-nums}
 
@@ -222,17 +290,252 @@
   #goReact:hover{background:rgba(var(--acc-rgb),.17)}
   #goReact:active{transform:scale(.97)}
   .perm{display:block;margin-top:16px;font-size:var(--t8);letter-spacing:-.004em;
-    color:var(--l-mut2);line-height:1.55}
-  .perm b{color:var(--l-mut);font-weight:450}
+    color:var(--mut2);line-height:1.55}
+  .perm b{color:var(--mut);font-weight:450}
+
+  /* ---------- продолжение: год одной сеткой ---------- */
+  .pyear{margin-top:clamp(64px,10vh,116px);max-width:none;text-align:center}
+  .pyear>.plbl,.pyear>h2,.pyear>.pyText{max-width:47.5rem;margin-left:auto;margin-right:auto}
+  /* Сетка и подпись — блоки, text-align их не двигает, нужен justify. */
+  .pyear .year{justify-content:center}
+  .pyear .yearLeg{justify-content:center}
+  .pyear h2{font-size:clamp(var(--t3),3.4vw,2.5rem);font-weight:620;
+    letter-spacing:-.036em;line-height:1.08;color:var(--ink)}
+  .pyText{margin:14px 0 26px;font-size:var(--t6);line-height:1.5;color:var(--mut);max-width:46ch}
+  .pyear .year{gap:4px}
+  .pyear .year i{width:13px;height:13px;border-radius:3px}
+  /* Год — показательный кусок страницы, поэтому клетки набегают волной
+     слева направо, по колонке за раз (--d ставится в drawIdleYear).
+     Волна только здесь: в Профиле та же сетка появляется без неё,
+     потому что туда заходят за числом, а не любоваться. */
+  /* Год на стартовой ЗЕЛЁНЫЙ, а не синий: зелёный у нас уже означает
+     «хорошо» (--ok), и «день, когда вы держались» — ровно это.
+     Синий остаётся цветом «ведёт куда-то», им набраны кнопки рядом.
+     В Профиле та же сетка пока синяя — сводить или нет, решает Роман. */
+  #idleYear i[data-l="1"]{background:rgba(var(--ok-rgb),.26)}
+  #idleYear i[data-l="2"]{background:rgba(var(--ok-rgb),.5)}
+  #idleYear i[data-l="3"]{background:rgba(var(--ok-rgb),.74)}
+  #idleYear i[data-l="4"]{background:rgb(var(--ok-rgb))}
+  .pyear .yearLeg i[data-l="1"]{background:rgba(var(--ok-rgb),.26)}
+  .pyear .yearLeg i[data-l="2"]{background:rgba(var(--ok-rgb),.5)}
+  .pyear .yearLeg i[data-l="3"]{background:rgba(var(--ok-rgb),.74)}
+  .pyear .yearLeg i[data-l="4"]{background:rgb(var(--ok-rgb))}
+
+  #idleYear i{opacity:0;transform:scale(.55);
+    transition:opacity .4s ease,transform .44s cubic-bezier(.22,.68,0,1);
+    transition-delay:var(--d,0ms)}
+  #idleYear.in i{opacity:1;transform:none}
+  /* Подпись привязана к САМОЙ сетке, а не появляется по себе: своим
+     наблюдателем она ловила край экрана и отставала от волны на целый экран
+     прокрутки — выглядело как пропавший элемент. */
+  .pyear .yearLeg{opacity:0;transition:opacity .5s ease .42s}
+  #idleYear.in + .yearLeg{opacity:1}
+
+  /* ---------- общий ритм разделов стартовой ----------
+     Подпись → крупное утверждение → содержимое, и так у каждого раздела.
+     Это и есть приём Notion: не разнообразие, а ОДИН ритм много раз подряд.
+     Мера 47.5rem у текста обязательна — строка во весь экран не читается. */
+  /* Раньше все разделы стояли ОДНОЙ УЗКОЙ КОЛОНКОЙ ПО ЛЕВОМУ КРАЮ, а справа
+     оставалось пустое поле почти в половину экрана: герой по центру, а всё
+     под ним прижато влево — страница разъезжалась на глаз.
+     Теперь раздел занимает всю ширину, заголовок по центру (как у героя),
+     содержимое расходится под ним. */
+  .pstep,.pwall,.ppriv,.pmode,.pfaq,.pvs{
+    margin-top:clamp(64px,10vh,116px);max-width:none;text-align:center}
+  /* Мера для чтения остаётся у ТЕКСТА, а не у раздела: строка во весь экран
+     не читается, поэтому заголовки центрируем, а не растягиваем. */
+  .pstep>.plbl,.pwall>.plbl,.ppriv>.plbl,.pmode>.plbl,.pfaq>.plbl,.pvs>.plbl,
+  .pstep>h2,.pwall>h2,.ppriv>h2,.pmode>h2,.pfaq>h2,.pvs>h2,
+  .pstep>.pyText,.pwall>.pyText,.ppriv>.pyText,.pmode>.pyText,.pfaq>.pyText,.pvs>.pyText{
+    max-width:47.5rem;margin-left:auto;margin-right:auto}
+  /* Внутри карточек текст по левому краю — его читают, а не разглядывают. */
+  .steps li,.modeCard,.tarBox,.faq,.vsCol{text-align:left}
+  /* Шапка закреплена сверху, поэтому переход по ссылке («Тарифы») ставил
+     заголовок раздела ровно под неё и срезал его. scroll-margin сдвигает
+     точку остановки ниже шапки. */
+  #idle section{scroll-margin-top:84px}
+  .pstep h2,.pwall h2,.pmode h2,.pfaq h2,.pvs h2{font-size:clamp(var(--t3),3.4vw,2.5rem);
+    font-weight:620;letter-spacing:-.036em;line-height:1.08;color:var(--ink)}
+
+  /* ---------- три шага ---------- */
+  .steps{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fit,minmax(min(15rem,100%),1fr))}
+  .steps li{background:var(--card);border-radius:18px;padding:20px 20px 22px;
+    border:1px solid var(--line2);
+    box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05)}
+  /* Номер шага кружком: цифра сама по себе потерялась бы среди текста.
+     Цвет берётся из той же пастельной тройки, что у плашек в карточках выше
+     (.pchip a/b/c) — новых оттенков не заводим, иначе цвет перестанет
+     что-либо значить. Подложка светлая, текст тёмный, поэтому читается
+     в обеих темах одинаково. */
+  .stepN{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+    font-size:var(--t8);font-weight:680;
+    margin-bottom:13px;font-variant-numeric:tabular-nums}
+  .steps li:nth-child(1) .stepN{background:#e7f0ff;color:#1d5fd0}
+  .steps li:nth-child(2) .stepN{background:#e4f6e8;color:#1c7a36}
+  .steps li:nth-child(3) .stepN{background:#ffeede;color:#b35f09}
+  .steps b{display:block;font-size:var(--t5);font-weight:620;letter-spacing:-.022em;color:var(--ink)}
+  .steps em{display:block;margin-top:7px;font-style:normal;font-size:var(--t7);
+    line-height:1.45;color:var(--mut)}
+
+  /* ---------- стена реакций ----------
+     Единственный раздел стартовой шире меры: это витрина, ей нужен размах.
+     Текст внутри меру держит — иначе строка растянулась бы на весь экран. */
+  .pwall{max-width:none}
+  .pwall .plbl,.pwall h2,.pwall .pyText{max-width:47.5rem}
+  .wall{margin-top:26px;display:grid;gap:10px;
+    grid-template-columns:repeat(auto-fill,minmax(min(13rem,30%),1fr))}
+  .wall img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;
+    border-radius:12px;background:var(--card);
+    transition:transform .3s cubic-bezier(.22,.68,0,1)}
+  /* Только при настоящей мыши: на сенсорном экране hover срабатывает
+     по касанию, и плитки дёргались бы прямо во время прокрутки. */
+  @media (hover:hover) and (pointer:fine){
+    .wall img:hover{transform:scale(1.035)}
+  }
+  .wallNote{margin-top:16px;font-size:var(--t8);color:var(--mut2)}
+
+  /* ---------- приватность ----------
+     Главное возражение против приложения с камерой. Отвечать на него
+     мелким шрифтом бессмысленно — его никто не читает, поэтому крупно. */
+  .privBig{font-size:clamp(var(--t2),4.4vw,3.25rem);font-weight:630;
+    letter-spacing:-.042em;line-height:1.04;color:var(--ink);text-wrap:balance}
+
+  /* ---------- чем отличается от блокировщика ----------
+     Две колонки: левая приглушена, правая в акценте. Это второе цветное
+     пятно на странице после жёлтой плашки в заголовке — и оно на месте:
+     цвет метит то, ради чего сюда пришли. */
+  .vs{margin-top:28px;display:grid;gap:14px;max-width:56rem;
+    margin-left:auto;margin-right:auto;
+    grid-template-columns:repeat(auto-fit,minmax(min(19rem,100%),1fr))}
+  .vsCol{border-radius:20px;padding:22px 22px 24px;border:1px solid var(--line2)}
+  .vsOld{background:var(--card)}
+  .vsNew{background:rgba(var(--acc-rgb),.06);border-color:rgba(var(--acc-rgb),.28);
+    box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(var(--acc-rgb),.10)}
+  .vsName{font-size:var(--t5);font-weight:620;letter-spacing:-.022em;
+    color:var(--mut);margin-bottom:15px}
+  .vsNew .vsName{color:var(--acc)}
+  .vsCol ul{margin:0;padding:0;list-style:none;display:grid;gap:10px}
+  .vsCol li{position:relative;padding-left:26px;font-size:var(--t7);
+    line-height:1.45;color:var(--mut)}
+  .vsNew li{color:var(--ink)}
+  /* Крестик и галочка нарисованы css-ом: эмодзи в интерфейсе запрещены. */
+  .vsOld li::before,.vsOld li::after{content:'';position:absolute;left:5px;top:.62em;
+    width:11px;height:1.8px;background:var(--mut2);border-radius:1px}
+  .vsOld li::before{transform:rotate(45deg)}
+  .vsOld li::after{transform:rotate(-45deg)}
+  .vsNew li::before{content:'';position:absolute;left:4px;top:.36em;width:10px;height:6px;
+    border-left:1.8px solid var(--acc);border-bottom:1.8px solid var(--acc);
+    transform:rotate(-45deg)}
+
+  /* ---------- режимы ---------- */
+  .modes{margin-top:26px;display:grid;gap:14px;
+    grid-template-columns:repeat(auto-fit,minmax(min(13rem,100%),1fr))}
+  .modeCard{background:var(--card);border-radius:18px;padding:19px 19px 21px;
+    border:1px solid var(--line2);
+    box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05)}
+  /* Точка показывает строгость: зелёная → янтарная → красная.
+     Это тот же смысл, что у кольца цели (зелёное в норме, красное при
+     переборе), а не «красный = действие»: здесь это показание, не кнопка. */
+  .modeName{font-size:var(--t6);font-weight:620;letter-spacing:-.018em;color:var(--ink);
+    display:flex;align-items:center;gap:9px}
+  .modeName::before{content:'';width:9px;height:9px;border-radius:50%;flex:none}
+  .modeCard:nth-child(1) .modeName::before{background:var(--ok)}
+  .modeCard:nth-child(2) .modeName::before{background:var(--warn)}
+  .modeCard:nth-child(3) .modeName::before{background:var(--bad)}
+  .modeText{margin-top:7px;font-size:var(--t7);line-height:1.45;color:var(--mut)}
+
+  /* ---------- вопросы: раскрывающиеся строки ----------
+     Во всю ширину раздела, а не в колонку 47.5rem: строка-вопрос короткая,
+     её не «читают абзацем», а выбирают глазами — здесь мера не нужна.
+     Ответ внутри меру держит: его как раз читают. */
+  .faq{margin:30px auto 0;max-width:none;border-top:1px solid var(--line2)}
+  .faqItem{border-bottom:1px solid var(--line2)}
+  /* Кнопка, а не <details>: высоту содержимого <details> нельзя анимировать
+     переносимо, а раскрытие должно быть с анимацией. aria-expanded даёт
+     клавиатуре и экранному диктору то же, что даёт <details>. */
+  .faqQ{display:flex;align-items:center;justify-content:space-between;gap:20px;
+    width:100%;background:none;border:0;padding:22px 2px;cursor:pointer;text-align:left;
+    font-family:inherit;font-size:var(--t6);font-weight:600;letter-spacing:-.016em;
+    color:var(--ink);transition:opacity .18s}
+  .faqQ:hover{opacity:.62}
+  .faqQ:active{opacity:.45;transition:opacity var(--press)}
+  .faqQ:focus-visible{outline:2px solid var(--acc);outline-offset:-2px;border-radius:6px}
+  /* Плюс нарисован двумя чёрточками, а не знаком «+»: так он ровно
+     превращается в минус поворотом, и шрифт на него не влияет. */
+  .faqQ i{position:relative;flex:none;width:16px;height:16px}
+  .faqQ i::before,.faqQ i::after{content:'';position:absolute;left:0;top:7px;
+    width:16px;height:1.8px;background:var(--mut);border-radius:2px;
+    transition:transform .34s cubic-bezier(.22,.68,0,1),background .18s}
+  .faqQ i::after{transform:rotate(90deg)}
+  .faqQ[aria-expanded="true"] i::after{transform:rotate(0deg)}
+  .faqQ[aria-expanded="true"] i::before,.faqQ[aria-expanded="true"] i::after{background:var(--ink)}
+
+  /* Раскрытие через grid-template-rows 0fr → 1fr: единственный способ
+     анимировать высоту НЕИЗВЕСТНОГО содержимого без замера в скрипте. */
+  .faqA{display:grid;grid-template-rows:0fr;
+    transition:grid-template-rows .38s cubic-bezier(.22,.68,0,1)}
+  .faqQ[aria-expanded="true"] + .faqA{grid-template-rows:1fr}
+  .faqA>p{overflow:hidden;margin:0;font-size:var(--t7);line-height:1.6;
+    color:var(--mut);max-width:58ch;
+    opacity:0;transition:opacity .28s ease,padding .38s cubic-bezier(.22,.68,0,1);
+    padding-bottom:0}
+  .faqQ[aria-expanded="true"] + .faqA>p{opacity:1;padding-bottom:24px}
+
+  /* ---------- тарифы ---------- */
+  .ptar{margin-top:clamp(64px,10vh,116px);max-width:none;text-align:center}
+  .ptar>.plbl,.ptar>h2,.ptar>.pyText{max-width:47.5rem;margin-left:auto;margin-right:auto}
+  /* Карточка тарифа во всю ширину смотрелась бы пустой — держим её уже. */
+  .tarBox{max-width:34rem;margin-left:auto;margin-right:auto}
+  .ptar h2{font-size:clamp(var(--t3),3.4vw,2.5rem);font-weight:620;
+    letter-spacing:-.036em;line-height:1.08;color:var(--ink)}
+  /* Карточка держит ту же меру и ту же мягкую тень, что плитки выше:
+     новый вид завёл бы ещё одну поверхность без причины. */
+  .tarBox{margin-top:8px;background:var(--card);border-radius:20px;padding:24px 24px 26px;
+    border:1px solid var(--line2);box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.05)}
+  .tarName{font-size:var(--t5);font-weight:620;letter-spacing:-.022em;color:var(--ink)}
+  .tarList{margin:16px 0 0;padding:0;list-style:none;display:grid;gap:11px}
+  .tarList li{position:relative;padding-left:26px;font-size:var(--t7);line-height:1.45;color:var(--mut)}
+  /* Галочка рисуется css-ом, а не эмодзи: эмодзи в интерфейсе запрещены. */
+  .tarList li::before{content:'';position:absolute;left:4px;top:.36em;width:10px;height:6px;
+    border-left:1.8px solid var(--ok);border-bottom:1.8px solid var(--ok);
+    transform:rotate(-45deg)}
+  .tarSoon{margin-top:16px;font-size:var(--t8);color:var(--mut2)}
+  .tarSoon a{color:var(--acc);text-decoration:none}
+  .tarSoon a:hover{text-decoration:underline}
+
+  /* ---------- завершающий блок ---------- */
+  .pend{margin-top:clamp(72px,12vh,132px);max-width:none;text-align:center}
+  .pend h2{font-size:clamp(var(--t2),4.4vw,3.25rem);font-weight:630;
+    letter-spacing:-.042em;line-height:1.04;color:var(--ink);
+    max-width:47.5rem;margin-left:auto;margin-right:auto}
+  .pend>.pyText{max-width:47.5rem;margin-left:auto;margin-right:auto}
+  .endCta{display:flex;justify-content:center;margin-top:4px}
+  /* Вид тот же, что у главной кнопки наверху: это одно и то же действие,
+     и выглядеть оно обязано одинаково. */
+  #go2{font:inherit;font-size:var(--t6);font-weight:560;letter-spacing:-.012em;border:0;
+    background:var(--acc);color:#fff;padding:15px 26px;border-radius:14px;cursor:pointer;
+    transition:transform var(--press),filter .18s}
+  #go2:hover{filter:brightness(1.08)}
+  #go2:active{transform:scale(.97)}
+  #go2:disabled{opacity:.42;cursor:default;transform:none;filter:none}
+
+  /* ---------- подвал ---------- */
+  .pfoot{margin-top:clamp(56px,9vh,96px);padding-top:22px;border-top:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .pfootBrand{font-size:var(--t8);font-weight:560;letter-spacing:.06em;color:var(--mut2)}
+  .pfootNav{display:flex;gap:20px;flex-wrap:wrap}
+  .pfootNav a{font-size:var(--t8);color:var(--mut);text-decoration:none;transition:color .18s}
+  .pfootNav a:hover{color:var(--ink)}
 
   /* ---------- три карточки продукта ---------- */
   .pcards{margin-top:clamp(44px,6vh,72px);display:grid;gap:18px;
     grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr))}
-  .pcard{background:var(--l-card);border-radius:20px;padding:22px 22px 0;overflow:hidden;
+  .pcard{background:var(--card);border-radius:20px;padding:22px 22px 0;overflow:hidden;
     box-shadow:0 1px 2px rgba(0,0,0,.05),0 12px 28px rgba(0,0,0,.05)}
-  .plbl{font-size:var(--t8);color:var(--l-mut2);margin-bottom:6px}
+  .plbl{font-size:var(--t8);color:var(--mut2);margin-bottom:6px}
   .pcard h3{font-size:var(--t4);font-weight:600;letter-spacing:-.024em;line-height:1.2;
-    color:var(--l-ink)}
+    color:var(--ink)}
   .pchips{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
   .pchip{font-size:var(--t9);font-weight:540;padding:4px 9px;border-radius:999px}
   .pchip.a{background:#e7f0ff;color:#1d5fd0}
@@ -241,35 +544,27 @@
   .pshot,.pcard .demo{margin-top:18px;border-radius:14px 14px 0 0;overflow:hidden;
     aspect-ratio:16/10;background:#000}
   .pshot img{width:100%;height:100%;object-fit:cover;display:block}
+  /* Кадры сложены стопкой ПОВЕРХ контейнера, а не гридом.
+     Гридом было нельзя: строка грида меряется по содержимому, у кадров разные
+     пропорции — и при подстановке следующего файла высота пересчитывалась,
+     обе картинки меняли размер, и видимая «приближалась».
+     Замерено: 312×207 → 312×195 в момент подстановки.
+     position:absolute вынимает их из потока: высоту теперь задаёт только
+     aspect-ratio:16/10 у .pshot, и она не зависит от того, что за кадр внутри. */
+  /* Стопка с растворением. Общая для средней карточки (кадры «Социальной
+     сети») и третьей (гифки «Волка»). position:absolute обязателен: в гриде
+     строка мерялась по содержимому, у кадров разные пропорции, и картинка
+     на глаз «приближалась» в момент подмены. */
+  .snShots,.wolfShots{position:relative}
+  .snShots img,.wolfShots img{position:absolute;inset:0;
+    width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .9s ease}
+  .snShots img.on,.wolfShots img.on{opacity:1}
 
-  /* ---------- превью продукта ----------
-     Смысл приложения — реакция, влетающая на весь экран. Показать её дешевле,
-     чем описать: гифки уже лежат в репозитории. Движется ТОЛЬКО эта карточка. */
+  /* Рамка первой карточки. Внутри теперь такая же стопка гифок, как в третьей:
+     ни «работы» абстрактными строками, ни плашки с точкой — Роман попросил
+     убрать и то и другое 21 сентября. Стили .scr/.work/.tag удалены вместе
+     с разметкой, мёртвых правил не оставляем. */
   .demo{position:relative;min-width:0}
-  .scr{position:relative;width:100%;height:100%;overflow:hidden;background:#08090c}
-  /* «работа» — нарочно абстрактные строки, а не поддельный скриншот чужой программы */
-  .work{position:absolute;inset:0;padding:clamp(16px,2vw,26px);opacity:1;
-    display:flex;flex-direction:column;justify-content:center;gap:clamp(7px,.9vw,11px);
-    transition:opacity .3s ease .08s}
-  .work i{display:block;height:clamp(5px,.55vw,7px);border-radius:999px;
-    background:rgba(255,255,255,.085)}
-  .work i:nth-child(1){width:62%} .work i:nth-child(2){width:88%}
-  .work i:nth-child(3){width:76%} .work i:nth-child(4){width:44%;background:rgba(var(--acc-rgb),.55)}
-  .work i:nth-child(5){width:83%} .work i:nth-child(6){width:69%}
-  .work i:nth-child(7){width:36%}
-  .scr.hit .work{opacity:0;transition:opacity .18s ease}
-  /* тот же «штамп», что и на настоящем экране реакции: вваливается, а не проявляется */
-  .scr>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-    opacity:0;transform:scale(1.16);
-    transition:opacity .2s ease,transform .34s cubic-bezier(.2,.75,.25,1)}
-  .scr.hit>img{opacity:1;transform:none;
-    transition:opacity .16s ease,transform .32s cubic-bezier(.14,.85,.3,1)}
-  .tag{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;align-items:center;gap:8px;
-    background:rgba(8,9,12,.78);border:1px solid var(--line);border-radius:999px;
-    padding:6px 12px;font-size:var(--t9);font-weight:510;letter-spacing:-.012em;color:var(--ink)}
-  .tag i{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none;
-    transition:background .25s ease}
-  .scr.hit .tag i{background:var(--bad)}
 
   /* ---------- верхняя строка ---------- */
   /* Шапка видна всегда — иначе Профиль, График и Реакция недоступны, пока не
@@ -281,7 +576,7 @@
     padding:16px 18px;pointer-events:none}
   /* Знак виден всегда, как и шестерёнка: он и есть логотип продукта,
      а не прибор. Приборы (статус, перерыв, занятие, кадры) — только при слежении. */
-  #bar > *:not(#gear):not(#brand):not(#lang){opacity:0;pointer-events:none;transition:opacity .35s ease}
+  #bar > *:not(#gear):not(#brand):not(#lang):not(#nav){opacity:0;pointer-events:none;transition:opacity .35s ease}
   #lang{transition:opacity .35s ease}
   #bar.on > #lang{opacity:0;pointer-events:none}
   #brand{display:flex;align-items:center;gap:9px;color:var(--ink);flex:none;
@@ -295,7 +590,7 @@
   /* Исключения обязаны совпадать со строкой выше: иначе правило показа легче
      правила скрытия и класс on ничего не включает — приборы и «Перерыв»
      остаются невидимы всю сессию. */
-  #bar.on > *:not(#gear):not(#brand):not(#lang){opacity:1;pointer-events:auto}
+  #bar.on > *:not(#gear):not(#brand):not(#lang):not(#nav){opacity:1;pointer-events:auto}
   /* На узком экране шапка не влезала: 437 px содержимого при экране 375,
      шестерёнка оказывалась за краем и была недоступна. Началось со знака
      (v34: 378 при 375), переключатель языка добил до 437.
@@ -322,13 +617,38 @@
     -webkit-backdrop-filter:blur(18px) saturate(180%);border:1px solid var(--line);
     border-radius:999px;padding:8px 14px;cursor:pointer;flex:none;
     transition:background .18s,border-color .18s,color .18s,transform var(--press)}
-  #pause:hover,#lang:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
+  #pause:hover,#lang:hover{background:rgba(var(--on),.14);border-color:rgba(var(--on),.26)}
   #pause:active,#lang:active{transform:scale(.95)}
   /* Кнопка языка видна всегда, как знак и шестерёнка: сменить язык надо ДО того,
      как начнёшь разбираться, а не после запуска камеры. */
   #lang{letter-spacing:.04em;min-width:44px}
+  /* Квадрат, а не таблетка: тема и язык должны отличаться на ощупь.
+     Половина залита — это и есть значок «светлая/тёмная». */
+  /* Цвет задан явно: без него кнопка берёт его не от темы, а от body,
+     и значок оказывался белым на белом. */
   #pause.on{background:rgba(var(--acc-rgb),.9);border-color:transparent;color:#fff}
   #pause.on:hover{background:rgba(var(--acc-rgb),1)}
+
+  /* Пока страница не прокручена, шапка висит на чистом поле и подложка ей
+     не нужна. Прокрутили — под неё уезжает текст, и без подложки он лезет
+     сквозь пункты. Страница стала длинной (год + тарифы + подвал), так что
+     это теперь видно постоянно.
+     :not(.on) обязателен: в работе шапка лежит поверх камеры и красится
+     по-своему, стеклянная полоса там не нужна. И размытие здесь — узкая
+     полоса на экране без детекции, а не запрещённое полноэкранное. */
+  #bar.sticky:not(.on){background:var(--glass);border-bottom:1px solid var(--line2);
+    backdrop-filter:blur(14px) saturate(180%);-webkit-backdrop-filter:blur(14px) saturate(180%)}
+
+  /* Пункты шапки. Это навигация, а не приборный слой, поэтому разрядка
+     почти нулевая и обычный регистр: капслок вразрядку читался бы как HUD.
+     Видны только до запуска — в работе шапка занята приборами (#bar.on ниже). */
+  #nav{display:flex;align-items:center;gap:20px;pointer-events:auto;flex:none;margin-right:2px}
+  #nav a{font-size:var(--t8);font-weight:520;letter-spacing:-.002em;color:var(--mut);
+    text-decoration:none;white-space:nowrap;transition:color .18s}
+  #nav a:hover{color:var(--ink)}
+  #nav a:active{opacity:.55;transition:opacity var(--press)}
+  /* В работе шапка занята приборами — пункты уходят совсем, как язык и тема. */
+  #bar.on > #nav{display:none}
 
   #gear{pointer-events:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--line);
     background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
@@ -336,7 +656,7 @@
     display:grid;place-items:center;flex:none;
     transition:background .18s,border-color .18s,transform var(--press)}
   #gear svg{width:16px;height:16px;display:block}
-  #gear:hover{border-color:rgba(255,255,255,.26);background:rgba(255,255,255,.14)}
+  #gear:hover{border-color:rgba(var(--on),.26);background:rgba(var(--on),.14)}
   #gear:active{transform:scale(.9)}
 
   /* Меню по шестерёнке. Приложение переросло одну панель настроек: появились
@@ -360,8 +680,21 @@
     font-family:inherit;font-size:var(--t7);font-weight:450;letter-spacing:-.008em;
     color:var(--ink);background:none;border:0;border-radius:10px;
     padding:9px 10px;cursor:pointer;text-align:left;transition:background .15s ease}
-  #menu button:hover,#langMenu button:hover{background:rgba(255,255,255,.1)}
-  #menu button:active,#langMenu button:active{background:rgba(255,255,255,.16);transform:scale(.97);
+  /* Пункты приходят по одному сверху вниз — меню «раскладывается», а не
+     возникает готовым списком. Заливка backwards обязательна: transform
+     у кнопки занят откликом на нажатие (scale .97 ниже), и любая другая
+     заливка приморозила бы его навсегда. */
+  #menu.on button,#langMenu.on button{
+    animation:menuItem .28s cubic-bezier(.22,.68,0,1) backwards}
+  #menu.on button:nth-child(1),#langMenu.on button:nth-child(1){animation-delay:.03s}
+  #menu.on button:nth-child(2),#langMenu.on button:nth-child(2){animation-delay:.06s}
+  #menu.on button:nth-child(3),#langMenu.on button:nth-child(3){animation-delay:.09s}
+  #menu.on button:nth-child(4),#langMenu.on button:nth-child(4){animation-delay:.12s}
+  #menu.on button:nth-child(5),#langMenu.on button:nth-child(5){animation-delay:.15s}
+  #menu.on button:nth-child(n+6),#langMenu.on button:nth-child(n+6){animation-delay:.18s}
+  @keyframes menuItem{from{opacity:0;transform:translateY(-7px)}}
+  #menu button:hover,#langMenu button:hover{background:rgba(var(--on),.1)}
+  #menu button:active,#langMenu button:active{background:rgba(var(--on),.16);transform:scale(.97);
     transition:transform var(--press)}
   #menu svg{width:15px;height:15px;flex:none;color:var(--mut)}
   /* Список языков — то же меню, что у шестерёнки, поэтому наследует #menu
@@ -369,7 +702,7 @@
      стоит слева и растёт из своего угла (apple-design: меню появляется
      оттуда, откуда его позвали). */
   #langMenu{left:12px;right:auto;min-width:11rem;transform-origin:0 0}
-  #langMenu button[aria-pressed="true"]{background:rgba(255,255,255,.12)}
+  #langMenu button[aria-pressed="true"]{background:rgba(var(--on),.12)}
   #menu hr{border:0;border-top:1px solid var(--line);margin:5px 8px}
 
   #tb{position:fixed;left:0;bottom:0;height:2px;width:0;background:var(--warn);z-index:7;
@@ -379,7 +712,7 @@
   /* ---------- HUD поверх камеры ---------- */
   #hud{position:fixed;inset:0;z-index:5;pointer-events:none;opacity:0;transition:opacity .5s ease}
   #hud.on{opacity:1}
-  .brk{position:absolute;width:26px;height:26px;border:1px solid rgba(255,255,255,.22)}
+  .brk{position:absolute;width:26px;height:26px;border:1px solid rgba(var(--on),.22)}
   .brk.tl{top:14px;left:14px;border-right:0;border-bottom:0}
   .brk.tr{top:14px;right:14px;border-left:0;border-bottom:0}
   .brk.bl{bottom:12px;left:12px;border-right:0;border-top:0}
@@ -389,14 +722,14 @@
   .g{display:flex;align-items:center;gap:9px;
      font-family:var(--mono);font-size:var(--t9);line-height:1;letter-spacing:.09em;
      text-shadow:0 1px 6px rgba(0,0,0,.9)}
-  .gl{width:56px;color:rgba(255,255,255,.5)}
-  .gt{position:relative;width:88px;height:3px;background:rgba(255,255,255,.13);border-radius:2px;
+  .gl{width:56px;color:rgba(var(--on),.5)}
+  .gt{position:relative;width:88px;height:3px;background:rgba(var(--on),.13);border-radius:2px;
       overflow:hidden}
   .gt i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--ok);border-radius:2px;
         transition:width .1s linear}
   .gt i.over{background:var(--bad)}
-  .gt u{position:absolute;top:-2px;bottom:-2px;left:66.6%;width:1px;background:rgba(255,255,255,.45)}
-  .gv{width:42px;color:rgba(255,255,255,.75);font-variant-numeric:tabular-nums}
+  .gt u{position:absolute;top:-2px;bottom:-2px;left:66.6%;width:1px;background:rgba(var(--on),.45)}
+  .gv{width:42px;color:rgba(var(--on),.75);font-variant-numeric:tabular-nums}
   .gv.over{color:var(--bad)}
 
   #headUpNote{position:absolute;left:28px;bottom:42px;opacity:0;pointer-events:none;
@@ -406,12 +739,12 @@
   #sess{position:absolute;right:28px;bottom:58px;display:flex;align-items:baseline;gap:7px;
         font-family:var(--mono);font-size:var(--t8);line-height:1;color:#e6ecf4;
         font-variant-numeric:tabular-nums;text-shadow:0 1px 8px rgba(0,0,0,.9)}
-  #sess em{font-style:normal;font-size:var(--t9);letter-spacing:.1em;color:rgba(255,255,255,.42);
+  #sess em{font-style:normal;font-size:var(--t9);letter-spacing:.1em;color:rgba(var(--on),.42);
            margin-right:9px;text-transform:uppercase}
   #sess em:last-child{margin-right:0}
 
   #tl{position:absolute;left:28px;right:28px;bottom:30px;height:3px;border-radius:2px;
-      background:rgba(255,255,255,.10);overflow:hidden}
+      background:rgba(var(--on),.10);overflow:hidden}
   #tl b{position:absolute;top:0;bottom:0;background:var(--bad);border-radius:2px;
         box-shadow:0 0 8px rgba(255,69,58,.7)}
   #phoneBadge{position:absolute;left:50%;top:22px;
@@ -428,7 +761,7 @@
   /* Панель ведёт пружина в JS, а не CSS-переход: её можно схватить на лету
      и развернуть, а стекло «густеет» по мере приезда — материал, а не проявление. */
   #sheet{position:fixed;top:0;right:0;bottom:0;width:23.875rem;max-width:92vw;z-index:9;
-    background:var(--glass);backdrop-filter:blur(30px) saturate(180%);
+    background:var(--page);backdrop-filter:blur(30px) saturate(180%);
     -webkit-backdrop-filter:blur(30px) saturate(180%);
     border-left:1px solid var(--line);padding:24px 22px 30px;overflow-y:auto;
     overscroll-behavior:contain;touch-action:pan-y;transform-origin:100% 50%;
@@ -446,7 +779,7 @@
   .ic svg{width:13px;height:13px;display:block;color:#fff}
   .ic-blue{background:var(--acc)}  .ic-red{background:var(--bad)}
   .ic-orange{background:var(--warn)} .ic-green{background:var(--ok)}
-  .ic-grey{background:rgba(255,255,255,.26)}
+  .ic-grey{background:rgba(var(--on),.26)}
   details.more summary .ic{margin-right:-2px}
 
   /* Синий текст = «отсюда куда-то ведёт», красный = завершающее действие.
@@ -458,12 +791,12 @@
 
   /* Режим — один выбор вместо одиннадцати тумблеров */
   .seg{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:3px;
-    background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.075);
+    background:rgba(var(--on),.075);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:3px}
   .seg button{font:inherit;font-size:var(--t7);font-weight:510;letter-spacing:-.008em;border:0;
     background:none;color:var(--ink);padding:9px 6px;border-radius:10px;cursor:pointer;
     transition:background .2s ease,color .2s ease}
-  .seg button[aria-pressed="true"]{background:rgba(255,255,255,.17)}
+  .seg button[aria-pressed="true"]{background:rgba(var(--on),.17)}
   .seg button:active{opacity:.55;transition:opacity var(--press)}
   /* Языков пять, и длинные названия («Azərbaycanca») в одну строку обрезались
      даже на широком экране: колонка выходила 63 px. Поэтому список языков —
@@ -471,9 +804,10 @@
   #langSeg{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
 
   /* Строки собраны в карточку с волосяными разделителями — как в системных настройках */
-  .card{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
-    border-radius:14px;padding:0 14px}
-  .card>.sw,.card>.num,.card>.row,.card>.sl{border-top:1px solid rgba(255,255,255,.075)}
+  .card{background:rgba(var(--on),.05);border:1px solid rgba(var(--on),.07);
+    border-radius:14px;padding:0 14px;
+    box-shadow:0 1px 2px rgba(0,0,0,.28),0 10px 26px -12px rgba(0,0,0,.5)}
+  .card>.sw,.card>.num,.card>.row,.card>.sl{border-top:1px solid rgba(var(--on),.075)}
   .card>:first-child{border-top:0}
   .row{display:flex;align-items:center;justify-content:space-between;gap:12px;
     min-height:46px;padding:11px 0;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink)}
@@ -485,10 +819,10 @@
   .sheet-head{display:flex;align-items:center;justify-content:space-between;
     margin:-4px -6px 20px;gap:12px}
   .sheet-head h1{font-size:var(--t3);font-weight:640;letter-spacing:-.028em;color:var(--ink)}
-  #close{flex:none;background:rgba(255,255,255,.09);border:0;color:var(--mut);
+  #close{flex:none;background:rgba(var(--on),.09);border:0;color:var(--mut);
     font-size:var(--t7);cursor:pointer;line-height:1;width:30px;height:30px;border-radius:50%;
     display:grid;place-items:center;transition:color .18s,background .18s}
-  #close:hover{color:var(--ink);background:rgba(255,255,255,.07)}
+  #close:hover{color:var(--ink);background:rgba(var(--on),.07)}
   #close:active{color:var(--ink);transform:scale(.86);transition:transform var(--press)}
 
   .pick{cursor:pointer}
@@ -501,7 +835,7 @@
 
   .sw{display:flex;align-items:center;justify-content:space-between;gap:12px;
     font-size:var(--t7);letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
-  .sw input{appearance:none;width:40px;height:23px;border-radius:999px;background:rgba(255,255,255,.07);
+  .sw input{appearance:none;width:40px;height:23px;border-radius:999px;background:rgba(var(--on),.07);
     border:1px solid var(--line);position:relative;cursor:pointer;transition:.2s;flex:none}
   .sw input::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;
     background:var(--mut);transition:.2s cubic-bezier(.32,.72,0,1)}
@@ -517,7 +851,7 @@
 
   .num{display:flex;align-items:center;justify-content:space-between;gap:12px;
     font-size:var(--t7);letter-spacing:-.008em;min-height:46px;padding:9px 0;color:var(--ink)}
-  .num input{width:78px;text-align:right;background:rgba(255,255,255,.08);border:1px solid transparent;
+  .num input{width:78px;text-align:right;background:rgba(var(--on),.08);border:1px solid transparent;
     color:var(--ink);border-radius:10px;padding:8px 11px;font:inherit;font-size:var(--t7);
     font-variant-numeric:tabular-nums}
   .num input:focus{outline:none;border-color:var(--acc);background:rgba(var(--acc-rgb),.12)}
@@ -528,16 +862,19 @@
   /* Плитки сессии переехали из узкой панели на широкий «График»: жёсткие две
      колонки растягивали их до 352 px. auto-fit даёт 2 в панели и 4 на странице. */
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));gap:8px}
-  .st{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
-    border-radius:14px;padding:13px 15px}
-  .st b{display:block;font-size:var(--t4);font-weight:590;letter-spacing:-.028em;color:var(--ink);
+  /* Плитка цифр — та же поверхность, что и карточка: раньше отличалась
+     заливкой без причины. Одна вещь — один вид. */
+  .st{background:rgba(var(--on),.05);border:1px solid rgba(var(--on),.07);
+    border-radius:14px;padding:15px 16px;
+    box-shadow:0 1px 2px rgba(0,0,0,.28),0 10px 26px -12px rgba(0,0,0,.5)}
+  .st b{display:block;font-size:var(--t3);font-weight:590;letter-spacing:-.03em;color:var(--ink);
     font-variant-numeric:tabular-nums;line-height:1.15}
   .st span{font-size:var(--t8);color:var(--mut);letter-spacing:-.003em}
   .today{font-size:var(--t8);color:var(--mut2);margin-top:10px;line-height:1.6;padding:0 4px}
   .today b{color:var(--mut);font-weight:530;font-variant-numeric:tabular-nums}
 
   #live{font-family:var(--mono);font-size:var(--t8);line-height:1.95;color:var(--mut);
-    background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
+    background:rgba(var(--on),.062);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:12px 14px}
   #live b{color:var(--ink);font-weight:600}
   #live .hit{color:var(--bad)}
@@ -545,13 +882,13 @@
 
   .acts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:22px}
   .acts button{font:inherit;font-size:var(--t7);font-weight:530;letter-spacing:-.008em;border-radius:14px;
-    padding:13px 10px;cursor:pointer;background:rgba(255,255,255,.085);
-    border:1px solid rgba(255,255,255,.075);color:var(--ink);
+    padding:13px 10px;cursor:pointer;background:rgba(var(--on),.085);
+    border:1px solid rgba(var(--on),.075);color:var(--ink);
     transition:background .18s,border-color .18s}
   .acts button:hover:not(:disabled){background:rgba(var(--acc-rgb),.24);border-color:rgba(var(--acc-rgb),.5)}
   .acts button:active:not(:disabled){transform:scale(.96);transition:transform var(--press)}
   .acts button:disabled{opacity:.32;cursor:default}
-  .acts button.primary{background:var(--ink);color:#000;border-color:transparent;
+  .acts button.primary{background:var(--ink);color:var(--ink-on);border-color:transparent;
     font-weight:590;padding:15px 10px}
   .acts button.primary:hover:not(:disabled){background:#fff;border-color:transparent}
   .quiet{display:block;margin:2px auto 0;font:inherit;font-size:var(--t8);color:var(--acc);
@@ -561,11 +898,11 @@
   details.more{margin-top:16px}
   details.more summary{list-style:none;cursor:pointer;display:flex;align-items:center;
     justify-content:space-between;gap:10px;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink);
-    min-height:46px;padding:11px 14px;background:rgba(255,255,255,.062);
-    border:1px solid rgba(255,255,255,.075);border-radius:14px;user-select:none;
+    min-height:46px;padding:11px 14px;background:rgba(var(--on),.062);
+    border:1px solid rgba(var(--on),.075);border-radius:14px;user-select:none;
     transition:background .18s}
   details.more summary::-webkit-details-marker{display:none}
-  details.more summary:hover{background:rgba(255,255,255,.09)}
+  details.more summary:hover{background:rgba(var(--on),.09)}
   details.more summary:active{opacity:.6;transition:opacity var(--press)}
   details.more summary b{font-weight:400}
   details.more summary i:not(.ic){font-style:normal;font-size:var(--t7);color:var(--mut);
@@ -598,7 +935,7 @@
     text-wrap:balance;letter-spacing:-.011em}
   #wiz .cd{font-size:var(--t1);font-weight:590;letter-spacing:-.04em;line-height:1;color:var(--ink);
     margin-top:30px;font-variant-numeric:tabular-nums}
-  #wiz .pr{width:220px;height:3px;background:rgba(255,255,255,.12);border-radius:2px;margin-top:22px;
+  #wiz .pr{width:220px;height:3px;background:rgba(var(--on),.12);border-radius:2px;margin-top:22px;
     overflow:hidden}
   #wiz .pr i{display:block;height:100%;width:0;background:var(--acc);transition:width .1s linear}
   /* пропорции корпуса телефона (iPhone 15 Pro Max — 159.9 x 76.7 мм ≈ 2.08:1) */
@@ -620,12 +957,12 @@
   #frameBox b{position:absolute;left:50%;bottom:-32px;transform:translateX(-50%);white-space:nowrap;
     font-family:var(--mono);font-size:var(--t9);line-height:1;letter-spacing:.14em;color:var(--acc)}
   #wiz .res{font-family:var(--mono);font-size:var(--t8);line-height:2;color:var(--mut);margin-top:24px;
-    background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
+    background:rgba(var(--on),.062);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:16px 20px}
   #wiz .res b{color:var(--ink)}
   #wiz .res .good{color:var(--ok)} #wiz .res .bad{color:var(--bad)}
   #wiz button{margin-top:28px;font:inherit;font-size:var(--t6);font-weight:590;letter-spacing:-.012em;
-    border:0;border-radius:999px;padding:15px 44px;background:var(--ink);color:#000;cursor:pointer;
+    border:0;border-radius:999px;padding:15px 44px;background:var(--ink);color:var(--ink-on);cursor:pointer;
     transition:transform .2s var(--spring),box-shadow .2s ease}
   #wiz button:hover{transform:translateY(-2px);box-shadow:0 20px 48px -20px rgba(245,245,247,.7)}
   #wiz button:active{transform:translateY(-1px) scale(.96);transition:transform var(--press)}
@@ -641,10 +978,10 @@
     margin:0 -22px 9px;padding:0 22px 2px;scrollbar-width:none}
   .chips::-webkit-scrollbar{display:none}
   .chips button{flex:none;font-family:inherit;font-weight:510;font-size:var(--t8);
-    letter-spacing:-.004em;color:var(--mut);background:rgba(255,255,255,.075);
-    border:1px solid rgba(255,255,255,.075);border-radius:999px;padding:6px 12px;
+    letter-spacing:-.004em;color:var(--mut);background:rgba(var(--on),.075);
+    border:1px solid rgba(var(--on),.075);border-radius:999px;padding:6px 12px;
     cursor:pointer;transition:background .2s ease,color .2s ease,border-color .2s ease}
-  .chips button[aria-pressed="true"]{background:var(--ink);color:#000;border-color:transparent}
+  .chips button[aria-pressed="true"]{background:var(--ink);color:var(--ink-on);border-color:transparent}
   .chips button:active{opacity:.55;transition:opacity var(--press)}
 
   .shelf{display:grid;gap:8px;
@@ -663,13 +1000,13 @@
      начальное состояние для только что вставленного элемента.
      Ступенька 22 мс, но не дальше 11-й плитки (`--i` ставится в разметке):
      на 33 штуках волна иначе тянулась бы почти секунду. */
-  .tile{--in-delay:calc(var(--i,0) * 22ms);
+  .tile{font-family:inherit;font-size:var(--t8);--in-delay:calc(var(--i,0) * 22ms);
     padding:0;border:0;background:none;cursor:pointer;font-family:inherit;
     text-align:left;color:var(--mut);
     transition:transform var(--press),opacity .18s var(--ease-out) var(--in-delay)}
   @starting-style{ .tile{opacity:0} }
   .tile img,.tile em{display:block;width:100%;aspect-ratio:16/11;border-radius:10px;
-    background:rgba(255,255,255,.06);box-shadow:0 0 0 1px rgba(255,255,255,.075) inset;
+    background:rgba(var(--on),.06);box-shadow:0 0 0 1px rgba(var(--on),.075) inset;
     transition:box-shadow .2s ease}
   /* Масштаб живёт на содержимом, а не на .tile: у самой плитки transform занят
      откликом на нажатие (110 мс), и одно свойство двумя длительностями не анимируется. */
@@ -726,7 +1063,7 @@
     transition:opacity .24s ease,visibility 0s linear .24s}
   #ask.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .26s ease}
   .askCard{width:100%;max-width:420px;background:rgba(28,28,30,.96);
-    border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:26px 24px 20px;
+    border:1px solid rgba(var(--on),.12);border-radius:20px;padding:26px 24px 20px;
     box-shadow:0 30px 80px -30px rgba(0,0,0,.9);
     transform:scale(.96);transition:transform .34s var(--ease-out)}
   #ask.on .askCard{transform:none}
@@ -736,13 +1073,13 @@
   .askList{margin-top:18px;display:flex;flex-direction:column;gap:6px}
   .askList button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
     font:inherit;font-size:var(--t7);letter-spacing:-.008em;color:var(--ink);
-    background:rgba(255,255,255,.07);border:1px solid transparent;border-radius:14px;
+    background:rgba(var(--on),.07);border:1px solid transparent;border-radius:14px;
     padding:13px 14px;cursor:pointer;transition:background .16s ease,border-color .16s ease}
-  .askList button:hover{background:rgba(255,255,255,.12)}
+  .askList button:hover{background:rgba(var(--on),.12)}
   .askList button:active{opacity:.6;transition:opacity var(--press)}
   .askList button.last{border-color:rgba(var(--acc-rgb),.55);background:rgba(var(--acc-rgb),.14)}
   /* Главное действие шага: крупное, белое — мимо него не промахнёшься */
-  .askList button.askGo{justify-content:center;background:var(--ink);color:#000;
+  .askList button.askGo{justify-content:center;background:var(--ink);color:var(--ink-on);
     font-size:var(--t6);font-weight:590;padding:16px 14px;letter-spacing:-.012em}
   .askList button.askGo:hover{background:#fff}
   .askList button.last::after{content:"в прошлый раз";margin-left:auto;font-size:var(--t8);
@@ -751,11 +1088,11 @@
      клавиши Enter нет, да и без видимой кнопки непонятно, что делать дальше. */
   .askOther{position:relative;display:flex}
   .askList input{width:100%;font:inherit;font-size:var(--t7);color:var(--ink);
-    background:rgba(255,255,255,.09);border:1px solid var(--acc);border-radius:14px;
+    background:rgba(var(--on),.09);border:1px solid var(--acc);border-radius:14px;
     padding:13px 52px 13px 14px;outline:none}
   .askOther button{position:absolute;right:6px;top:50%;width:34px;height:34px;
     transform:translateY(-50%);border:0;border-radius:10px;background:var(--ink);
-    color:#000;display:grid;place-items:center;cursor:pointer;padding:0;
+    color:var(--ink-on);display:grid;place-items:center;cursor:pointer;padding:0;
     transition:opacity .16s ease,transform var(--press)}
   .askOther button svg{width:17px;height:17px;display:block}
   .askOther button:disabled{opacity:.28;cursor:default}
@@ -765,6 +1102,9 @@
   .askSkip:hover{color:var(--ink)}
 
   /* чем занят — видно в шапке, это и есть смысл «назвать вслух» */
+  /* Кольцо фокуса своё: системное на стеклянном фоне чипа не читалось.
+     :focus-visible, а не :focus — по мышке кольцо не нужно. */
+  #task:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
   #task{pointer-events:auto;display:none;align-items:center;max-width:300px;
     font-size:var(--t8);font-weight:510;letter-spacing:-.012em;color:var(--ink);
     background:var(--glass);backdrop-filter:blur(18px) saturate(180%);
@@ -777,21 +1117,93 @@
   #task b{font-weight:inherit;min-width:0;overflow:hidden;text-overflow:ellipsis;
     white-space:nowrap}
   #task i{font-style:normal;color:var(--mut);margin-left:7px;flex:none}
-  #task:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.26)}
+  #task:hover{background:rgba(var(--on),.14);border-color:rgba(var(--on),.26)}
 
   /* ---------- страница статистики ---------- */
-  #stats,#prof,#acc,#frn,#react,#pEdit{position:fixed;inset:0;z-index:14;background:#000;overflow-y:auto;
+  /* ============ СВЕТЛЫЕ РАЗДЕЛЫ ============
+     Роман 19 сентября: «пытался сделать тёмное приложение похожим на Notion —
+     невозможно». То, что нравится в Notion, — белая бумага, мягкие тени,
+     мелкие цветные метки. На чёрном это не читается так же.
+
+     Тёмными остаются ТОЛЬКО те экраны, где темнота нужна по делу:
+     рабочий экран, экран реакции (кадр из кино на белом выглядит сломанным)
+     и мастер обучения — все три лежат поверх камеры.
+
+     Переворот делается токенами: --on переворачивает 78 подложек разом,
+     --ink/--mut/--mut2 — текст. Отдельных правил на каждый элемент нет. */
+  /* ============ ТЕМА ============
+     Переключается квадратиком в шапке, помнится между запусками.
+     Светлая по умолчанию — её выбрал Роман 19 сентября.
+
+     Тема меняет ТОЛЬКО эти поверхности. Рабочий экран, экран реакции
+     и мастер обучения остаются тёмными всегда: они лежат поверх камеры.
+
+     Цвета светлой темы подобраны скриптом под белый фон, тон сохранён:
+     #77787c давал 4.41 при норме 4.5, #0a84ff — 3.65, #ff453a — 3.41. */
+  /* СВЕТЛАЯ ВИТРИНА, ТЁМНЫЙ ИНСТРУМЕНТ (21 сентября, возврат к прежнему).
+     Переключатель тем убран: Роман сказал, что светлое приложение плохо
+     сочетается, и попросил оставить белой только первую страницу.
+
+     Тёмная палитра живёт в :root в начале файла — тёмное тут по умолчанию.
+     Светлая нужна ровно двум поверхностям: стартовому экрану и ШАПКЕ НАД НИМ.
+     Шапка перечислена отдельно не для красоты: #bar лежит ВНЕ #idle
+     (z-index 6 против 1) и переменные оттуда НЕ наследует — на этом
+     наступали трижды, свойства наследуются по дереву, а не по порядку правил. */
+  #idle,#bar:not(.on){
+    --on:0,0,0;
+    --ink:#0b0b0c; --mut:#55565a; --mut2:#6e6f73;   /* 5.02 на белом */
+    --acc:#0071e3; --acc-rgb:0,113,227;             /* 4.70 */
+    --bad:#d70015;                                  /* 5.38 */
+    --ok:#1c7a36; --ok-rgb:28,122,54;
+    /* Цвет текста НА заливке --ink: подложка тёмная, значит текст белый.
+       Без него кнопки становятся чёрным по чёрному — замер показывал 1.07. */
+    --ink-on:#fff;
+    --card:#f7f7f5;
+    --line:rgba(0,0,0,.09); --line2:rgba(0,0,0,.055);
+    --glass:rgba(255,255,255,.92);
+    --page:#fff;
+    color:var(--ink)}
+
+  /* Меню по шестерёнке и список языков лежат ВНЕ #idle, поэтому остаются
+     тёмными — они часть инструмента. Но тёмное стекло настроено под чёрный
+     фон и над белой страницей просвечивало насквозь: светлый текст пропадал.
+     Пока витрина видна, стекло держит своё плотное поле. */
+  body:has(#idle:not(.gone)){--glass:rgba(12,15,20,.94)}
+  #stats,#prof,#acc,#frn,#react,#pEdit{position:fixed;inset:0;z-index:14;background:var(--page);overflow-y:auto;
     opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .26s ease,visibility 0s linear .26s}
   #stats.on,#prof.on,#acc.on,#frn.on,#react.on,#pEdit.on{opacity:1;visibility:visible;pointer-events:auto;
     transition:opacity .28s ease}
+  /* Раньше раздел просто проявлялся целиком — плоско, будто картинку подменили.
+     Теперь подложка проявляется, а содержимое приходит следом снизу: сначала
+     появляется место, потом то, что в нём лежит. Только opacity и transform,
+     поэтому раздел, открытый поверх работающего трекера, кадров не отнимает. */
+  #stats .stWrap,#prof .stWrap,#acc .stWrap,#frn .stWrap,#react .stWrap,#pEdit .stWrap{
+    opacity:0;transform:translateY(16px);
+    transition:opacity .32s ease .05s,transform .46s cubic-bezier(.22,.68,0,1) .05s}
+  #stats.on .stWrap,#prof.on .stWrap,#acc.on .stWrap,#frn.on .stWrap,
+  #react.on .stWrap,#pEdit.on .stWrap{opacity:1;transform:none}
+  /* Второй слой поверх общего въезда: заголовок садится чуть ПОЗЖЕ остального,
+     и взгляд заканчивает движение на названии раздела.
+     Раньше опередить его нельзя: .stHead лежит ВНУТРИ .stWrap, а вложенный
+     элемент не может прийти раньше родителя — его прозрачность и сдвиг
+     перемножаются с родительскими.
+     Трогаем именно .stHead, а не всех детей .stWrap подряд: у произвольного
+     ребёнка может быть своя логика прозрачности, и мы бы её перебили. */
+  #stats .stHead,#prof .stHead,#acc .stHead,#frn .stHead,#react .stHead,#pEdit .stHead{
+    opacity:0;transform:translateY(10px);
+    transition:opacity .34s ease .1s,transform .5s cubic-bezier(.22,.68,0,1) .1s}
+  #stats.on .stHead,#prof.on .stHead,#acc.on .stHead,#frn.on .stHead,
+  #react.on .stHead,#pEdit.on .stHead{opacity:1;transform:none}
   .stWrap{max-width:47.5rem;margin:0 auto;padding:28px 24px 56px}
-  .stHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
-  .stHead h1{font-size:var(--t2);font-weight:640;letter-spacing:-.03em;color:var(--ink)}
-  #stClose,.xbtn{flex:none;background:rgba(255,255,255,.09);border:0;color:var(--mut);
+  .stHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+    padding-top:clamp(8px,3vh,34px);margin-bottom:clamp(26px,4.5vh,46px)}
+  .stHead h1{font-size:clamp(var(--t2),4.4vw,3.25rem);font-weight:640;
+    letter-spacing:-.042em;line-height:1.02;color:var(--ink)}
+  #stClose,.xbtn{flex:none;background:rgba(var(--on),.09);border:0;color:var(--mut);
     font-size:var(--t7);cursor:pointer;width:32px;height:32px;border-radius:50%;
     display:grid;place-items:center;transition:background .18s,color .18s}
-  #stClose:hover,.xbtn:hover{background:rgba(255,255,255,.16);color:var(--ink)}
+  #stClose:hover,.xbtn:hover{background:rgba(var(--on),.16);color:var(--ink)}
   #stClose:active,.xbtn:active{transform:scale(.88);transition:transform var(--press)}
 
   /* Профиль: круг с буквой вместо аватарки — эмодзи в интерфейсе не ставим */
@@ -805,8 +1217,12 @@
   .pAva:active{transform:scale(.96);transition:transform var(--press)}
   /* Заголовок раздела внутри полноэкранного слоя — тот же голос, что у заголовков
      в панели: обычный регистр, приглушённый, без разрядки. */
+  /* Мелкая серая подпись над блоком — ритм раздела у Notion:
+     подпись → крупное содержимое. Сверху ей нужен заметный отступ,
+     иначе блоки слипаются в один список. */
   .lbl{font-size:var(--t8);font-weight:510;letter-spacing:-.004em;color:var(--mut);
-    margin:32px 0 11px}
+    margin:clamp(34px,5vh,52px) 0 13px}
+  .lbl:first-child{margin-top:0}
 
   /* Одна главная цифра вместо шести равных: шесть одинаковых чисел означают,
      что ни одно не важно. Кегли остаются в шкале — clamp между --t2 и --t1. */
@@ -838,7 +1254,7 @@
   .gsel{width:100%;font-family:inherit;font-size:var(--t7);font-weight:450;color:var(--ink);
     background:none;border:0;cursor:pointer;text-align:left}
   .gsel i{flex:none;width:17px;height:17px;border-radius:50%;
-    border:1.5px solid rgba(255,255,255,.28);transition:.16s}
+    border:1.5px solid rgba(var(--on),.28);transition:.16s}
   .gsel[aria-pressed="true"] i{border-color:var(--acc);background:var(--acc);
     box-shadow:inset 0 0 0 3.5px #000}
   .gsel:active{opacity:.55;transition:opacity var(--press)}
@@ -880,14 +1296,14 @@
      один цвет, четыре ступени яркости — как требует dataviz. */
   .year{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);
     gap:3px;overflow-x:auto;overscroll-behavior-x:contain;padding-bottom:6px}
-  .year i{width:11px;height:11px;border-radius:2px;background:rgba(255,255,255,.055)}
+  .year i{width:11px;height:11px;border-radius:2px;background:rgba(var(--on),.055)}
   .year i[data-l="1"]{background:rgba(var(--acc-rgb),.3)}
   .year i[data-l="2"]{background:rgba(var(--acc-rgb),.52)}
   .year i[data-l="3"]{background:rgba(var(--acc-rgb),.76)}
   .year i[data-l="4"]{background:rgb(var(--acc-rgb))}
   .yearLeg{display:flex;align-items:center;gap:5px;margin-top:9px;
     font-size:var(--t9);color:var(--mut2);letter-spacing:-.002em}
-  .yearLeg i{width:11px;height:11px;border-radius:2px;background:rgba(255,255,255,.055)}
+  .yearLeg i{width:11px;height:11px;border-radius:2px;background:rgba(var(--on),.055)}
 
   .empty{max-width:42ch;margin:0 auto;padding:40px 0 8px;text-align:center}
   .empty svg{width:40px;height:40px;color:var(--mut2);margin-bottom:20px}
@@ -895,7 +1311,7 @@
     color:var(--ink)}
   .empty p{margin:11px auto 26px;max-width:38ch;font-size:var(--t7);line-height:1.6;
     color:var(--mut);letter-spacing:-.006em}
-  .pCell{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
+  .pCell{background:rgba(var(--on),.062);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:15px 16px}
   .pCell b{display:block;font-size:var(--t4);font-weight:590;letter-spacing:-.022em;
     color:var(--ink);font-variant-numeric:tabular-nums}
@@ -906,10 +1322,10 @@
 
   /* Вход через Google. Кнопку рисует сам Google в своём iframe — её оформление
      нам не подчиняется, поэтому вокруг ставим свою рамку, а не спорим с ней. */
-  #gBox{background:rgba(255,255,255,.062);border:1px solid rgba(255,255,255,.075);
+  #gBox{background:rgba(var(--on),.062);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:16px;margin-bottom:20px;display:grid;justify-items:start;gap:12px}
   #gIn{display:flex;align-items:center;gap:13px;width:100%}
-  #gPic{width:44px;height:44px;border-radius:50%;flex:none;background:rgba(255,255,255,.1);
+  #gPic{width:44px;height:44px;border-radius:50%;flex:none;background:rgba(var(--on),.1);
     object-fit:cover}
   #gWho{min-width:0}
   #gWho b{display:block;font-size:var(--t7);font-weight:560;letter-spacing:-.012em;color:var(--ink);
@@ -924,36 +1340,35 @@
      Бюджет потерь, а не «часы в фокусе»: время фокуса по дням не сохраняется,
      а потери — сохраняются с самого начала, поэтому кольцо работает на всей истории. */
   .goal{display:flex;align-items:center;gap:22px;margin:20px 0 8px;
-    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);
+    background:rgba(var(--on),.045);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:20px 22px}
   .ring{position:relative;width:104px;height:104px;flex:none}
   .ring svg{width:104px;height:104px;transform:rotate(-90deg);display:block}
   .ring circle{fill:none;stroke-width:9;stroke-linecap:round}
-  .ring .trk{stroke:rgba(255,255,255,.10)}
+  .ring .trk{stroke:rgba(var(--on),.10)}
   .ring .val{stroke:var(--ok);
     transition:stroke-dashoffset .75s var(--ease-out),stroke .3s ease}
   .ring.over .val{stroke:var(--bad)}
   .ring b{position:absolute;inset:0;display:grid;place-items:center;
-    font-size:var(--t5);font-weight:590;letter-spacing:-.025em;color:var(--ink);
+    font-size:var(--t3);font-weight:590;letter-spacing:-.03em;color:var(--ink);
     font-variant-numeric:tabular-nums}
   .goalTxt{min-width:0}
   .goalTxt h3{font-size:var(--t6);font-weight:590;letter-spacing:-.018em;color:var(--ink);
     margin-bottom:6px}
   .goalTxt p{font-size:var(--t8);line-height:1.55;color:var(--mut);letter-spacing:-.006em}
-  #gPlan{margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,.09)}
+  #gPlan{margin-top:7px;padding-top:7px;border-top:1px solid rgba(var(--on),.09)}
   #gPlan:empty{display:none}
   .goalTxt p b{color:var(--ink);font-weight:530;font-variant-numeric:tabular-nums}
 
   .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0 24px}
-  .kpi .st b{font-size:var(--t3)}
 
-  .chartBox{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.075);
+  .chartBox{background:rgba(var(--on),.045);border:1px solid rgba(var(--on),.075);
     border-radius:14px;padding:20px 18px 14px;position:relative}
   .chartTitle{font-size:var(--t8);font-weight:590;letter-spacing:-.004em;color:var(--mut);
     margin-bottom:16px}
   .plot{position:relative;height:210px}
   .grid{position:absolute;inset:0;pointer-events:none}
-  .grid i{position:absolute;left:56px;right:0;height:1px;background:rgba(255,255,255,.07)}
+  .grid i{position:absolute;left:56px;right:0;height:1px;background:rgba(var(--on),.07)}
   .grid u{position:absolute;left:0;width:50px;text-align:right;transform:translateY(-50%);
     font-style:normal;font-size:var(--t9);color:var(--mut2);font-variant-numeric:tabular-nums}
   .bars{position:absolute;top:0;bottom:0;left:56px;right:0;display:flex;align-items:flex-end;gap:2px}
@@ -962,13 +1377,13 @@
     transform-origin:bottom;transform:scaleY(.02);opacity:.35;
     transition:transform .38s var(--ease-out),opacity .38s var(--ease-out),filter .15s ease}
   #stats.shown .bar>i{transform:scaleY(1);opacity:.92}
-  .bar.zero>i{background:rgba(255,255,255,.13)}
+  .bar.zero>i{background:rgba(var(--on),.13)}
   .xlab{display:flex;gap:2px;margin:9px 0 0 56px}
   .xlab span{flex:1;min-width:0;text-align:center;font-size:var(--t9);color:var(--mut2);
     font-variant-numeric:tabular-nums;white-space:nowrap;overflow:visible}
 
   #stTip{position:absolute;pointer-events:none;opacity:0;transform:translate(-50%,-100%);
-    background:rgba(28,28,30,.96);border:1px solid rgba(255,255,255,.14);border-radius:10px;
+    background:rgba(28,28,30,.96);border:1px solid rgba(var(--on),.14);border-radius:10px;
     padding:7px 11px;font-size:var(--t8);color:var(--ink);white-space:nowrap;z-index:3;
     box-shadow:0 10px 30px -10px rgba(0,0,0,.8);transition:opacity .14s ease}
   #stTip.on{opacity:1}
@@ -998,7 +1413,15 @@
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;
       animation-delay:0s!important;transition-duration:.16s!important}
     .phero>*,.pcards{animation:none}
-    .scr>img{transform:none!important}
+    /* Появление по прокрутке остаётся, но без переезда и без волны:
+       элемент просто проявляется там, где он есть. */
+    .rv{transform:none!important;transition-delay:0s!important}
+    #idleYear i{transform:none!important;transition-delay:0s!important}
+    .stWrap{transform:none!important}
+    .stHead{transform:none!important}
+    #menu.on button,#langMenu.on button{animation:none!important}
+    #bar #brand,#bar #lang,#bar #gear{animation:none!important}
+    .pyear .yearLeg{transition-delay:0s!important}
     #sheet{transform:none!important;transition:opacity .2s ease!important}
     #wiz{transform:none!important}
     /* пик приложения без «вваливания»: слово просто проявляется */
@@ -1019,7 +1442,7 @@
   /* «Уменьшить прозрачность»: стекло становится плотной поверхностью. */
   @media (prefers-reduced-transparency: reduce){
     :root{--glass:#0b0f16}
-    .chip,#fps,#gear,#sheet,#wiz,#menu,#langMenu{backdrop-filter:none!important;
+    .chip,#fps,#gear,#sheet,#wiz,#menu,#langMenu,#bar.sticky{backdrop-filter:none!important;
       -webkit-backdrop-filter:none!important}
     #sheet{background:#0b0f16}
     #wiz{background:#080b11}
@@ -1029,20 +1452,30 @@
 
   /* «Повысить контраст»: почти непрозрачный фон и явная граница. */
   @media (prefers-contrast: more){
-    :root{--mut:#a9b6c6;--line:rgba(255,255,255,.36);--line2:rgba(255,255,255,.24);
+    :root{--mut:#a9b6c6;--line:rgba(var(--on),.36);--line2:rgba(var(--on),.24);
       --glass:rgba(5,8,12,.94)}
-    #sheet{background:rgba(5,8,12,.96);border-left-color:rgba(255,255,255,.42)}
-    .st,#live,#wiz .res{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.3)}
+    #sheet{background:rgba(5,8,12,.96);border-left-color:rgba(var(--on),.42)}
+    .st,#live,#wiz .res{background:rgba(var(--on),.09);border-color:rgba(var(--on),.3)}
     .lede,.today,.hint,.learn{color:#c7c7cc} .perm{color:#aeaeb2}
-    .brk{border-color:rgba(255,255,255,.55)}
-    .gl{color:rgba(255,255,255,.8)} .gv{color:#fff}
-    .gt{background:rgba(255,255,255,.28)}
-    .sw input{background:rgba(255,255,255,.14)}
+    .brk{border-color:rgba(var(--on),.55)}
+    .gl{color:rgba(var(--on),.8)} .gv{color:#fff}
+    .gt{background:rgba(var(--on),.28)}
+    .sw input{background:rgba(var(--on),.14)}
     #esc{color:#93a0b0}
   }
   /* ====== Узкий экран. Врезка стоит ПОСЛЕДНЕЙ намеренно:
      у приборов шапки `flex:none` объявлен ниже по файлу, и при равном весе
      побеждает то правило, что идёт позже. Поставишь выше — молча не сработает. */
+  /* Ниже 768 пункты шапки не помещаются — замерено barfit.mjs: содержимому
+     нужно 713 px в русском (самый широкий язык), 705 в казахском, 667
+     в английском; при 768 влезает, при 700 шестерёнка уходит за край.
+     Ссылки при этом не теряются: те же три лежат в подвале, а подвал
+     виден на любой ширине. Врезка стоит ПЕРЕД блоком 440, потому что
+     тот обязан оставаться последним в <style> — см. CLAUDE.md. */
+  @media (max-width:767px){
+    #nav{display:none}
+  }
+
   @media (max-width:440px){
     #brand b{display:none}
     /* Последние пиксели: поля шапки с 18 до 12. Прятать показания кадров
@@ -1080,6 +1513,11 @@
   <button id="pause">Перерыв</button>
   <button id="task" title="Сменить занятие"></button>
   <span id="fps"></span>
+  <nav id="nav" aria-label="Разделы">
+    <a href="#tariffs" data-jump="tariffs">Тарифы</a>
+    <a href="https://t.me/focus_guard" target="_blank" rel="noopener noreferrer">Телеграм</a>
+    <a href="https://t.me/framebyroman" target="_blank" rel="noopener noreferrer">Контакты</a>
+  </nav>
   <button id="gear" title="Настройки" aria-label="Настройки">
     <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <path d="M1 4.5h14M1 11.5h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
@@ -1163,7 +1601,7 @@
 <div id="idle">
   <div class="hero">
     <div class="phero">
-      <h1 data-t>Отвели взгляд — <span class="pmark"><i></i>получите</span> по глазам.</h1>
+      <h1 id="heroH1" data-no-t></h1>
       <p class="lede" id="lede" data-t>Камера следит, не отвлеклись ли вы. Отвлеклись — на весь
         экран влетает <b>то, что вы выбрали сами</b>. Всё считает ваш браузер: ни один кадр
         не уходит с компьютера.</p>
@@ -1180,31 +1618,224 @@
          повторяется куском за куском. Движется при этом только первая
          карточка — та, где идёт настоящее превью. -->
     <div class="pcards">
-      <div class="pcard">
+      <div class="pcard rv" style="--rvd:0ms">
         <p class="plbl">Что будет</p>
         <h3>Кино на весь экран, а не уведомление.</h3>
         <div class="pchips"><span class="pchip a" id="cReacts"></span><span class="pchip b">свой файл</span></div>
-        <div class="demo" aria-hidden="true">
-          <div class="scr" id="scr">
-            <div class="work"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-            <img id="demoImg" alt="">
-            <div class="tag"><i></i><span id="demoTag">взгляд на экране</span></div>
-          </div>
+        <div class="demo wolfShots" id="scrBox" aria-hidden="true">
+          <img src="reactions/money.jpg" alt="" class="on">
+          <img alt="">
         </div>
       </div>
-      <div class="pcard">
+      <div class="pcard rv" style="--rvd:90ms">
         <p class="plbl">Как ловит</p>
         <h3>Взгляд, поворот головы, телефон в руке.</h3>
         <div class="pchips"><span class="pchip c">478 точек лица</span></div>
-        <div class="pshot"><img src="reactions/network.jpg" alt="" loading="lazy"></div>
+        <div class="pshot snShots" id="snBox" aria-hidden="true">
+          <img src="sn/1.jpg" alt="" class="on">
+          <img src="sn/2.jpg" alt="" loading="lazy">
+        </div>
       </div>
-      <div class="pcard">
+      <div class="pcard rv" style="--rvd:180ms">
         <p class="plbl">Что считает</p>
         <h3>Сколько просидели и сколько потеряли.</h3>
         <div class="pchips"><span class="pchip b">по дням</span><span class="pchip a">за год</span></div>
-        <div class="pshot"><img src="reactions/money.jpg" alt="" loading="lazy"></div>
+        <div class="pshot wolfShots" id="wolfBox" aria-hidden="true">
+          <img src="reactions/money.jpg" alt="" class="on" loading="lazy">
+          <img alt="">
+        </div>
       </div>
     </div>
+
+    <!-- Три шага. Это первое, что спрашивают про приложение с камерой:
+         что мне вообще надо сделать. -->
+    <section class="pstep rv" style="--rvd:0ms">
+      <p class="plbl">Как это работает</p>
+      <h2>Три шага, и можно работать.</h2>
+      <ol class="steps">
+        <li><span class="stepN">1</span>
+          <b>Запустите</b>
+          <em>Браузер спросит камеру. Устанавливать нечего.</em></li>
+        <li><span class="stepN">2</span>
+          <b>Работайте</b>
+          <em>Камера следит за взглядом, пока вы заняты своим делом.</em></li>
+        <li><span class="stepN">3</span>
+          <b>Отвлеклись</b>
+          <em>На весь экран влетает то, что вы выбрали заранее.</em></li>
+      </ol>
+    </section>
+
+    <!-- Стена реакций. Раньше её на главной не было вовсе: продукт про то,
+         что тебе прилетает кино, показывал ОДИН кадр в первой карточке.
+         Обложки — настоящие .jpg из reactions/, те же, что в полке.
+         Грузятся лениво: 56 штук это около 450 КБ, и разом они не нужны. -->
+    <section class="pwall rv" style="--rvd:0ms">
+      <p class="plbl">Реакции</p>
+      <h2 id="wallH">Сцены из кино.</h2>
+      <p class="pyText">Выберите любую — или поставьте свой файл: гифку, webp или видео.</p>
+      <div class="wall" id="idleWall" aria-hidden="true"></div>
+      <p class="wallNote">осуждение · злость · грусть · соберись · ради чего</p>
+    </section>
+
+    <!-- Приватность одной крупной строкой. Это главное возражение против
+         приложения с камерой, и отвечать на него абзацем мелким шрифтом
+         бессмысленно — его никто не читает. -->
+    <section class="ppriv rv" style="--rvd:0ms">
+      <p class="plbl">Приватно</p>
+      <h2 class="privBig">Ни один кадр не уходит с компьютера.</h2>
+      <p class="pyText">Лицо распознаётся прямо в браузере. Нет сервера, нет загрузки,
+        нет аккаунта. Закроете вкладку — не останется ничего, кроме ваших же цифр
+        в этой же программе.</p>
+    </section>
+
+    <!-- Чем отличается от блокировщика. Это самое частое возражение
+         («у меня уже стоит блокировщик»), и отличие настоящее: список адресов
+         не закрывает телефон в руке и не видит, что вы отвернулись. -->
+    <section class="pvs rv" style="--rvd:0ms">
+      <p class="plbl">Чем отличается</p>
+      <h2>Это не блокировщик сайтов.</h2>
+      <p class="pyText">Блокировщик закрывает список адресов и вас не видит.
+        Focus Guard смотрит на вас, а не на вкладки.</p>
+      <div class="vs">
+        <div class="vsCol vsOld">
+          <p class="vsName">Блокировщик</p>
+          <ul>
+            <li>Закрывает сайты из списка</li>
+            <li>Не видит телефон в руке</li>
+            <li>Не видит, что вы отвернулись</li>
+            <li>Обходится в другом браузере</li>
+          </ul>
+        </div>
+        <div class="vsCol vsNew">
+          <p class="vsName" data-no-t>Focus Guard</p>
+          <ul>
+            <li>Смотрит на вас, а не на вкладки</li>
+            <li>Ловит телефон в руке</li>
+            <li>Ловит взгляд мимо экрана</li>
+            <li>Считает, сколько времени потеряно</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Режимы. Настоящая таблица из кода: какие условия включает каждый режим. -->
+    <section class="pmode rv" style="--rvd:0ms">
+      <p class="plbl">Строгость</p>
+      <h2>Три режима — от мягкого до злого.</h2>
+      <div class="modes">
+        <div class="modeCard">
+          <p class="modeName">Мягкий</p>
+          <p class="modeText">Ловит, только если вы ушли из кадра или уткнулись вниз.</p>
+        </div>
+        <div class="modeCard">
+          <p class="modeName">Обычный</p>
+          <p class="modeText">Добавляет телефон в руке и взгляд выше экрана.</p>
+        </div>
+        <div class="modeCard">
+          <p class="modeName">Строгий</p>
+          <p class="modeText">Ловит и взгляд в сторону, и отвёрнутую голову.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Продолжение страницы: весь год одной сеткой. Данные НАСТОЯЩИЕ,
+         из focusguard.days. Выдумывать статистику на странице, которая
+         обещает считать ваше время, было бы враньём — то же правило,
+         по которому «работа» в превью абстрактная, а не поддельный
+         скриншот чужой программы. Нет данных — сетка пустая, и подпись
+         честно говорит, что здесь появится. -->
+    <section class="pyear">
+      <p class="plbl rv" style="--rvd:0ms">Ваше время</p>
+      <h2 class="rv" style="--rvd:70ms">Каждый день, когда вы держались, — клетка.</h2>
+      <p class="pyText rv" id="idleYearText" style="--rvd:140ms"></p>
+      <div class="year" id="idleYear" aria-hidden="true"></div>
+      <div class="yearLeg">меньше<i></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i>больше</div>
+    </section>
+
+    <!-- Вопросы. Только те, что действительно задают про камеру в браузере,
+         и ответы честные: про очки и чужие лица прямо сказано, что не проверено. -->
+    <section class="pfaq rv" style="--rvd:0ms">
+      <p class="plbl">Главное</p>
+      <h2>Вопросы по приложению</h2>
+      <div class="faq">
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Надо что-то устанавливать?<i></i></button>
+          <div class="faqA"><p>Нет. Это обычная страница в браузере: открыли и работаете.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Есть приложение для компьютера?<i></i></button>
+          <div class="faqA"><p>Готовится — для macOS, Windows и Linux. Это не просто ярлык: в отдельном окне реакция сможет появляться поверх других программ, а в браузере она видна только внутри своей вкладки. Пока всё работает в браузере, и устанавливать ничего не нужно.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Сколько стоит и как платить?<i></i></button>
+          <div class="faqA"><p>Сейчас бесплатно, целиком и без ограничений. Платный тариф готовится — про него и про способы оплаты напишу в телеграм-канале заранее.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Видео с камеры точно никуда не уходит?<i></i></button>
+          <div class="faqA"><p>Точно. Распознавание работает на вашем компьютере, отправлять кадры некуда — сервера нет.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">А если я в очках или в комнате темно?<i></i></button>
+          <div class="faqA"><p>Честно: пока не проверено ни на ком, кроме автора. Настройка подстраивается под ваше лицо и свет, но если не сработает — напишите, разберёмся.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Работает на телефоне?<i></i></button>
+          <div class="faqA"><p>Рассчитано на компьютер: нужна камера, направленная на вас, пока вы работаете.</p></div>
+        </div>
+        <div class="faqItem">
+          <button class="faqQ" type="button" aria-expanded="false">Куда написать, если что-то не работает?<i></i></button>
+          <div class="faqA"><p>В телеграм — ссылка «Контакты» в шапке и в подвале страницы. Отвечает автор, а не поддержка.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Тарифы. Цен не выдумываем: приложение сейчас бесплатное, и это
+         не отговорка, а ответ на вопрос «сколько стоит», который человек
+         задаёт раньше всех прочих. Платный тариф обозначен ОДНОЙ строкой,
+         а не второй карточкой с пустым списком: карточка без содержимого —
+         это те же «шесть нулей», от которых отказались в пустом профиле. -->
+    <section class="ptar rv" id="tariffs" style="--rvd:0ms">
+      <p class="plbl">Тарифы</p>
+      <h2>Сейчас — бесплатно.</h2>
+      <p class="pyText">Платить не за что: сервера нет, всё считает ваш браузер,
+        и ни один кадр не уходит с компьютера.</p>
+      <div class="tarBox">
+        <p class="tarName">Бесплатно</p>
+        <ul class="tarList">
+          <li>Все реакции и свой файл</li>
+          <li>Слежение за взглядом, головой и телефоном</li>
+          <li>Статистика по дням и за год</li>
+          <li>Шесть языков</li>
+          <li>Без регистрации и без сервера</li>
+        </ul>
+      </div>
+      <p class="tarSoon">Платный тариф готовится.
+        <a href="https://t.me/focus_guard" target="_blank" rel="noopener noreferrer">Расскажу в канале</a></p>
+    </section>
+
+    <!-- Завершающий блок. Страница длинная, и единственная кнопка запуска
+         стояла в самом верху: дочитал до конца — листай обратно.
+         Кнопка не своя, а та же самая: нажатие переадресуется на #go,
+         поэтому у неё сами собой работают и «Загружаю модель…», и disabled. -->
+    <section class="pend rv" style="--rvd:0ms">
+      <h2>Попробуйте прямо сейчас.</h2>
+      <p class="pyText">Бесплатно, без регистрации. Нужна только камера.</p>
+      <div class="endCta">
+        <button id="go2" type="button">Запустить бесплатно</button>
+      </div>
+    </section>
+
+    <!-- Подвал. Те же ссылки, что в шапке, и он нужен именно поэтому:
+         на узком экране пункты шапки не помещаются и скрыты, а телеграм
+         и связь должны оставаться достижимыми на любой ширине. -->
+    <footer class="pfoot">
+      <span class="pfootBrand" data-no-t>Focus Guard</span>
+      <nav class="pfootNav" aria-label="Ссылки">
+        <a href="#tariffs" data-jump="tariffs">Тарифы</a>
+        <a href="https://t.me/focus_guard" target="_blank" rel="noopener noreferrer">Телеграм-канал</a>
+        <a href="https://t.me/framebyroman" target="_blank" rel="noopener noreferrer">Написать</a>
+      </nav>
+    </footer>
   </div>
 </div>
 
@@ -2586,7 +3217,7 @@ async function start(){
     video.srcObject=stream; await video.play();
 
     $('idle').classList.add('gone'); btn.textContent='Запустить';
-    demoStop();                      // превью не должно крутиться рядом с детекцией
+    wolfStop();                      // гифки не должны крутиться рядом с детекцией
     $('bar').classList.add('on');
     $('stop').disabled=$('setupAll').disabled=$('learnPh').disabled=false;
     running=true; fpsT=performance.now();
@@ -2635,8 +3266,8 @@ function stopAll(){
                  : 'Ни одного отвлечения. Так и надо.');
     $('lede').classList.add('sum');
   }
-  $('idle').classList.remove('gone');
-  demoStep();
+  $('idle').classList.remove('gone'); drawIdleYear();
+  wolfStart();
   $('go').disabled=false; $('go').textContent='Запустить';
 }
 
@@ -2771,6 +3402,20 @@ $('fVid').addEventListener('change',e=>{
 });
 
 $('go').addEventListener('click',start);
+/* Вторая кнопка запуска внизу страницы НЕ заводит свой обработчик, а нажимает
+   главную: тогда ей достаются и «Загружаю модель…», и disabled, и всё, что
+   появится у #go потом. Две копии логики разъехались бы при первой же правке. */
+$('go2').addEventListener('click',()=>$('go').click());
+
+/* Снимок рабочего экрана свой на каждый язык: на нём есть подписи
+   «в фокусе» и «Ни одного отвлечения», и русские слова на английской
+   странице выглядели бы как недоделка.
+
+   СЕЙЧАС В ТРЕТЬЕЙ КАРТОЧКЕ ЕГО НЕТ — там гифки «Волка» (Роман попросил
+   21 сентября). Файлы product-work-*.jpg лежат на месте, и строка ждёт
+   снимок обратно: вернуть — это одна строка разметки. Проверка на null
+   стояла тут с самого начала, поэтому сейчас строка просто молчит. */
+{ const w=$('shotWork'); if(w) w.src='product-work-'+LANG+'.jpg'; }
 $('stop').addEventListener('click',stopAll);
 $('setupAll').addEventListener('click', startSetup);
 
@@ -3640,43 +4285,94 @@ $('gOut').addEventListener('click',()=>{
 
    Таймер обязательно снимается при старте слежения: анимированный webp
    продолжал бы крутиться за скрытым экраном и отъедать кадры у детекции. */
-const DEMO=['eyeroll','wolf','money'];
-let demoN=0, demoT=null;
 /* «Уменьшить движение» гасило css-переходы, но не сам цикл: гифки продолжали
    меняться и крутиться. Теперь при этой настройке показываем ОДИН неподвижный
    кадр — обложку .jpg, которая и так лежит рядом. */
 const stillOnly = matchMedia('(prefers-reduced-motion: reduce)');
-/* Цикл КОНЕЧНЫЙ: каждая реакция показывается дважды, потом кадр замирает.
-   Две причины, обе настоящие:
-   1) единственная кнопка на странице не должна вечно соперничать с движением —
-      движение выигрывает внимание всегда;
-   2) WCAG 2.2.2: автозапуск движения дольше 5 секунд обязан когда-то кончаться.
-   На последнем показе сразу ставим неподвижную обложку .jpg, а не .webp —
-   тогда нет скачка от середины анимации к первому кадру при замирании. */
-const DEMO_LOOPS=2;
-function demoStep(){
-  const scr=$('scr');
-  if(stillOnly.matches){
-    $('demoImg').src='reactions/'+DEMO[0]+'.jpg';
-    scr.classList.add('hit'); $('demoTag').textContent='взгляд ушёл';
-    return;
-  }
-  const name=DEMO[demoN++%DEMO.length];
-  const last=demoN>=DEMO.length*DEMO_LOOPS;
-  $('demoImg').src='reactions/'+name+(last?'.jpg':'.webp');
-  demoT=setTimeout(()=>{
-    scr.classList.add('hit'); $('demoTag').textContent='взгляд ушёл';
-    if(last) return;                       // замерли на реакции — так понятнее, чем на пустой рамке
-    demoT=setTimeout(()=>{
-      scr.classList.remove('hit'); $('demoTag').textContent='взгляд на экране';
-      demoT=setTimeout(demoStep, 1000);
-    }, 2700);
-  }, 2300);
+
+/* ---------- «Волк с Уолл-стрит» в первой и третьей карточках ----------
+   Роман 21 сентября: «хочу чтоб 1 и 3 видео игрались одинаково по 5 раз
+   и затем переключалась другая, с гифками волк с уолл стрит».
+
+   ГЛАВНОЕ, ЧТО НАДО ЗНАТЬ ПРО «ПЯТЬ РАЗ». Сколько раз анимированный webp
+   прокрутился, браузер НЕ СООБЩАЕТ: события такого в JS нет вовсе, длительность
+   из <img> не достать. Поэтому каждая длительность ЗАМЕРЕНА заранее — разбором
+   чанков ANMF прямо в файле — и вписана сюда числом.
+   Заменишь файл гифки — перемеряй и правь число, иначе «пять раз» разъедется
+   молча: картинка будет крутиться, а счёт пойдёт не тот.
+
+   Пять прогонов выходят очень разными по времени, и это свойство самих сцен,
+   а не ошибка: money 2,2 с, wolf 5,4 с, pool 4,8 с, yacht 7,0 с, floor 12,5 с. */
+const WOLF=[
+  {n:'money', ms: 450},   //  9 кадров по 50 мс
+  {n:'wolf',  ms:1080},   // 35 кадров по 30 мс
+  {n:'pool',  ms: 950},   // 19 кадров по 50 мс
+  {n:'yacht', ms:1400},   // 14 кадров по 100 мс
+  {n:'floor', ms:2496},   // 32 кадра по 78 мс
+];
+const WOLF_PLAYS=5;
+
+/* Ссылку на качающуюся картинку надо держать: без неё сборщик мусора вправе
+   выбросить Image до того, как придёт ответ, и предзагрузка пропадёт зря. */
+let wolfPre=[];
+function wolfPreload(name){
+  const i=new Image(); i.src='reactions/'+name+'.webp';
+  wolfPre.push(i); if(wolfPre.length>3) wolfPre.shift();
 }
-function demoStop(){
-  clearTimeout(demoT); demoT=null; demoN=0;
-  $('scr').classList.remove('hit'); $('demoTag').textContent='взгляд на экране';
-  $('demoImg').removeAttribute('src');
+
+/* ЦИКЛ ТЕПЕРЬ БЕСКОНЕЧНЫЙ. Раньше он кончался (DEMO_LOOPS=2) ради WCAG 2.2.2
+   и чтобы движение не соперничало с единственной кнопкой. Роман попросил
+   иначе, и на странице уже есть два вечных движения по его же просьбе —
+   слово в заголовке и кадры «Социальной сети». Настоящая мера доступности
+   осталась на месте: при «уменьшить движение» не крутится вообще ничего.
+
+   ОДИН ТАЙМЕР НА ОБЕ КАРТОЧКИ, и сцена в них ОДНА И ТА ЖЕ.
+   Роман 21 сентября: «одинаковые в одно время играют надо».
+   Двух отдельных циклов держать нельзя даже при равных длительностях:
+   таймеры расходятся на доли миллисекунды и за минуту заметно разъезжаются.
+   Синхронность тут — не приятная мелочь, а сама задумка, поэтому список
+   один, шаг один, и карточки меняются в один и тот же миг. */
+const WOLF_BOXES=['scrBox','wolfBox'];
+let wolfN=0, wolfT=null, wolfFade=null;
+
+function wolfStep(){
+  const r=WOLF[wolfN++%WOLF.length];
+  const ушедшие=[];
+  for(const id of WOLF_BOXES){
+    const box=$(id); if(!box) continue;
+    const [a,b]=box.children;
+    const показан=a.classList.contains('on');
+    const пришёл=показан?b:a, ушёл=показан?a:b;
+    /* src ставится РОВНО в миг показа: анимация начинается с первого кадра,
+       и пять прогонов считаются от того, что видит человек. Поставишь
+       заранее — money успеет прокрутиться пять раз ещё до появления. */
+    пришёл.src='reactions/'+r.n+'.webp';
+    пришёл.classList.add('on'); ушёл.classList.remove('on');
+    ушедшие.push(ушёл);
+  }
+  /* Погасшей картинке снимаем src, но только когда растворение кончилось:
+     анимированный webp под opacity:0 продолжает раскручиваться впустую.
+     Те же грабли, что с превью за скрытым стартовым экраном.
+     Таймер один на обе карточки и хранится в переменной — иначе он мог бы
+     сработать уже после остановки и стереть только что поставленный кадр. */
+  clearTimeout(wolfFade);
+  wolfFade=setTimeout(()=>{ for(const i of ушедшие) i.removeAttribute('src'); }, 960);
+  wolfPreload(WOLF[wolfN%WOLF.length].n);           // следующая — заранее в кэш
+  wolfT=setTimeout(wolfStep, r.ms*WOLF_PLAYS);
+}
+function wolfStart(){
+  clearTimeout(wolfT); clearTimeout(wolfFade); wolfT=wolfFade=null; wolfN=0;
+  if(stillOnly.matches) return;        // остаются неподвижные обложки из разметки
+  wolfT=setTimeout(wolfStep, 600);
+}
+function wolfStop(){
+  clearTimeout(wolfT); clearTimeout(wolfFade); wolfT=wolfFade=null; wolfN=0;
+  for(const id of WOLF_BOXES){
+    const box=$(id); if(!box) continue;
+    const [a,b]=box.children;
+    b.removeAttribute('src'); b.classList.remove('on');
+    a.src='reactions/'+WOLF[0].n+'.jpg'; a.classList.add('on');
+  }
 }
 { /* Число реакций не пишем в разметку: оно устареет при первом же добавлении.
      Берём длину REACTS и склоняем уже переведённым plural(). */
@@ -3686,7 +4382,210 @@ function demoStop(){
 /* «Посмотреть реакции» ведёт туда же, куда пункт меню: одна дорога, не две. */
 $('goReact').addEventListener('click',()=>{ openLayer('react'); });
 
-demoStep();
+/* Год на стартовой странице. Данные настоящие — та же функция ступеней,
+   что и в Профиле, и те же ключи по UTC. Рисуется при загрузке и заново
+   после остановки сессии: за это время мог добавиться сегодняшний день. */
+/* Пример для пустой сетки. Пока у человека нет ни одного дня, показывать
+   364 серые клетки — значит показать сломанный блок: он и есть главное,
+   ради чего стоит долистать страницу.
+   ВАЖНО: это подписано ПРИМЕРОМ, а не выдано за ваши цифры. Правило
+   «выдумывать статистику нельзя» никуда не делось — нарушение было бы
+   в том, чтобы назвать нарисованное своим, а не в самом образце.
+   Значения считаются из номера клетки, поэтому один и тот же узор при
+   каждой загрузке: случайные числа давали бы мерцание на ровном месте. */
+function demoLevel(c){
+  const r  = (((c*2654435761)>>>0) % 1000)/1000;
+  const выходной = (c%7)>=5;                      // строка недели: 5 и 6 — суббота и воскресенье
+  /* Нарастающей плотности больше нет: раньше начало года было почти пустым,
+     и сетка читалась как «только начал». Теперь заполнено по всему году,
+     выходные пореже — иначе узор выглядит машинным, а не прожитым. */
+  const порог = выходной ? .34 : .82;
+  if(r > порог) return 0;
+  const v = (((c*40503)>>>0) % 100)/100;
+  return v<.30?1 : v<.62?2 : v<.86?3 : 4;
+}
+
+function drawIdleYear(){
+  const box=$('idleYear'); if(!box) return;
+  /* Дни нужны только чтобы выбрать подпись: саму сетку рисуем образцом всегда.
+     Дат тут больше нет — клетка образца не привязана к календарю. */
+  const keys=Object.keys(allDays());
+  const cells=[];
+  for(let i=363;i>=0;i--){
+    /* Всегда образец: стартовая — витрина, а не личная статистика.
+       Настоящий год живёт в Профиле, там та же сетка на настоящих данных. */
+    const lvl = demoLevel(363-i);
+    /* Волна слева направо: одна задержка на колонку (неделю), 52 × 7 мс.
+       По клетке было бы 364 разных задержки и рябь вместо движения. */
+    cells.push('<i data-l="'+lvl+'" style="--d:'+(Math.floor((363-i)/7)*7)+'ms"></i>');
+  }
+  box.innerHTML=cells.join('');
+  /* Подпись честная в обоих случаях: это образец, и он назван образцом.
+     Тому, у кого дни уже есть, говорим, где смотреть свои. */
+  $('idleYearText').textContent = keys.length
+    ? t('Это пример. Ваш настоящий год — в Профиле.')
+    : t('Это пример — так сетка выглядит через год. Ваши клетки начнут появляться после первой сессии.');
+}
+
+/* ---------- Кадры из «Социальной сети» в средней карточке ----------
+   Роман: «в середине каждые 10 секунд анимационно сменялись фотки из фильма
+   social network». Файлы лежат в папке sn/ (1.jpg…8.jpg) и ОБЯЗАНЫ
+   уехать на сайт вместе с ним — иначе карточка будет пустой.
+
+   Растворение .9 с намеренно медленное: это фон карточки, а не событие.
+   Быстрая смена рядом с текстом дёргала бы взгляд от чтения. */
+const SN = 8, SN_MS = 10000, SN_FADE = 900;
+{
+  const box = $('snBox');
+  /* «Уменьшить движение» — один кадр и никакой смены. Подмена картинки
+     css-ом не лечится, поэтому настройка проверяется отдельно, как у превью. */
+  if(box && !lessMotion.matches){
+    const [a, b] = box.children;
+    let i = 0;                       // индекс ПОКАЗАННОГО кадра, 0…SN-1
+    setInterval(()=>{
+      const показан = a.classList.contains('on');
+      const пришёл = показан ? b : a;   // он уже загружен заранее
+      const ушёл   = показан ? a : b;
+      пришёл.classList.add('on');
+      ушёл.classList.remove('on');
+      i = (i+1) % SN;
+      /* Следующий кадр кладём в ТОЛЬКО ЧТО УШЕДШИЙ элемент и только после
+         того, как он полностью погас: поменяй src сразу — подмена была бы
+         видна прямо во время растворения. Заодно это и есть предзагрузка:
+         к следующей смене через 10 с картинка уже в кэше. */
+      setTimeout(()=>{ ушёл.src = 'sn/' + (((i+1) % SN) + 1) + '.jpg'; }, SN_FADE + 60);
+    }, SN_MS);
+  }
+}
+
+/* ---------- Раскрывающиеся вопросы ----------
+   Открытым держим только один: два раскрытых ответа сразу — это стена текста,
+   ради которой раскрытие и затевалось. Повторное нажатие закрывает. */
+for(const q of document.querySelectorAll('.faqQ')){
+  q.addEventListener('click', ()=>{
+    const было = q.getAttribute('aria-expanded')==='true';
+    for(const x of document.querySelectorAll('.faqQ')) x.setAttribute('aria-expanded','false');
+    q.setAttribute('aria-expanded', было ? 'false' : 'true');
+  });
+}
+
+/* ---------- Заголовок со сменяющимся словом ----------
+   Роман: «место где вы начинаете (работать, изучать, учиться, исследовать,
+   экспериментировать), и эти слова меняются каждые пару секунд с разным цветом».
+
+   «Изучать» из списка убрано: оно переходное и в одиночку читается обрывком
+   («начинаете изучать» — что?). Вместо него «создавать», остальные четыре
+   стоят как просил.
+
+   Цвета берутся из уже существующей пастельной семьи (.pchip a/b/c + жёлтый
+   плашки); пятый, сиреневый, заведён специально под пятое слово. Подложка
+   светлая, текст тёмный — читается одинаково в обеих темах. */
+const ROT = ['работать','учиться','исследовать','экспериментировать','создавать'];
+/* Пары «подложка → точка». Густой оттенок берётся из той же семьи, что
+   у плашек в карточках (.pchip a/b/c), чтобы не разводить новых цветов. */
+const ROTBG  = ['#ffe9a8','#e7f0ff','#e4f6e8','#ffeede','#ece1ff'];
+const ROTDOT = ['#f0a90c','#1d5fd0','#1c7a36','#b35f09','#6b3fd6'];
+
+function buildHero(){
+  const h=$('heroH1'); if(!h) return;
+  /* Собираем один раз: дальше меняется только текст внутри #rotWord,
+     иначе при каждой смене заново проигрывалась бы прочерчивающая анимация. */
+  h.innerHTML = tf('Место, где вы начинаете %1',
+    '<span class="pmark"><i></i><span id="rotWord"></span></span>');
+  const w=$('rotWord'); if(!w) return;
+  let i=0;
+  const поставить = () => {
+    w.textContent = t(ROT[i]);
+    const m=document.querySelector('.pmark');
+    m.style.setProperty('--markbg',  ROTBG[i]);
+    m.style.setProperty('--markdot', ROTDOT[i]);
+  };
+  поставить();
+  /* «Уменьшить движение» — слово не меняется вовсе. Смена текста css-ом
+     не лечится, поэтому проверяем настройку отдельно, как у превью. */
+  if(lessMotion.matches) return;
+  setInterval(()=>{
+    w.classList.add('out');
+    setTimeout(()=>{ i=(i+1)%ROT.length; поставить(); w.classList.remove('out'); }, 340);
+  }, 2600);
+}
+buildHero();
+
+/* Стена реакций на стартовой. Обложки — те же настоящие .jpg, что в полке,
+   список берётся из REACTS: добавил гифку — она появилась и здесь.
+   loading="lazy" обязателен: 56 обложек это около 450 КБ, и разом они не нужны,
+   до стены ещё надо долистать. */
+function drawIdleWall(){
+  const box=$('idleWall'); if(!box) return;
+  const файлы = REACTS.filter(r=>r[0]);   // у «просто надписи» файла нет
+  /* На витрине двадцать, а не все пятьдесят шесть — Роман попросил сократить.
+     Берём РОВНО через равные промежутки по списку, а не первые двадцать:
+     список отсортирован по категориям, и первые двадцать были бы сплошным
+     «осуждением». Так в кадр попадают все пять настроений. */
+  const N = Math.min(20, файлы.length);
+  const показ = Array.from({length:N}, (_,i)=>
+    файлы[Math.round(i*(файлы.length-1)/(N-1))]);
+  box.innerHTML = показ
+    .map(r=>'<img src="reactions/'+r[0]+'.jpg" alt="" loading="lazy" decoding="async">')
+    .join('');
+  /* В заголовке остаётся НАСТОЯЩЕЕ число доступных реакций, а не число плиток:
+     показываем двадцать, но в приложении их действительно 56. */
+  const h=$('wallH');
+  if(h) h.textContent = tf('%1 из кино.', plural(файлы.length,'сцена','сцены','сцен'));
+}
+drawIdleWall();
+drawIdleYear();
+
+/* Появление по мере прокрутки. IntersectionObserver, а не обработчик scroll:
+   обработчик считал бы положение на каждом кадре прокрутки, наблюдатель молчит,
+   пока элемент не показался. Каждый элемент снимается с наблюдения сразу после
+   появления — показать его второй раз всё равно нечем.
+   Живёт только на стартовом экране: камера там ещё не запущена. */
+function initReveal(){
+  const items=[...document.querySelectorAll('#idle .rv')];
+  const grid=$('idleYear');
+  const все=()=>{ items.forEach(e=>e.classList.add('in')); if(grid) grid.classList.add('in'); };
+  /* Нет поддержки — показываем всё сразу. Страница обязана работать,
+     появление это украшение. */
+  if(!('IntersectionObserver' in window)) return все();
+  const io=new IntersectionObserver((rows,obs)=>{
+    for(const r of rows){ if(!r.isIntersecting) continue;
+      r.target.classList.add('in'); obs.unobserve(r.target); }
+  },{threshold:.12, rootMargin:'0px 0px -8% 0px'});
+  items.forEach(e=>io.observe(e));
+  if(grid) io.observe(grid);
+}
+/* Наблюдатель заводится после того, как отыграл каскад шапки (.04–.26 с + .62 с).
+   Заведи сразу — и то, что уже видно, поехало бы одновременно с заголовком:
+   вместо порядка получилась бы каша. */
+setTimeout(initReveal, 380);
+
+/* Подложка шапки появляется, как только стартовый экран прокручен.
+   Слушатель на #idle, а не на window: областью прокрутки является он сам. */
+{
+  const idle=$('idle'), bar=$('bar');
+  const проверить=()=>bar.classList.toggle('sticky', idle.scrollTop>16);
+  idle.addEventListener('scroll', проверить, {passive:true});
+  проверить();
+}
+
+/* Переход к «Тарифам» делаем скриптом, а не якорем в адресе: #idle сам
+   является областью прокрутки, а лишний хеш в адресе мешался бы ?lang=. */
+for(const a of document.querySelectorAll('[data-jump]')){
+  a.addEventListener('click', e=>{
+    const цель=$(a.dataset.jump); if(!цель) return;
+    e.preventDefault();
+    /* Раздел, к которому прыгаем, показываем СРАЗУ. Иначе браузер целится
+       в ещё не проявившийся блок — он сдвинут вниз на 24 px появлением, —
+       а через полсекунды сдвиг снимается, и заголовок уезжает под шапку.
+       Замерено: запас до шапки был −7 px, то есть подпись пряталась. */
+    цель.classList.add('in');
+    for(const x of цель.querySelectorAll('.rv')) x.classList.add('in');
+    цель.scrollIntoView({behavior: lessMotion.matches?'auto':'smooth', block:'start'});
+  });
+}
+
+wolfStart();
 
 /* ---------- друзья ---------- */
 $('frnCopy').addEventListener('click',async()=>{
