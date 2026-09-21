@@ -453,6 +453,7 @@ window.FG_DICT = { lang: "en", dict: {
 
   /* заголовок со сменяющимся словом — 21 сентября */
   "Место, где вы начинаете %1": "The place where you start %1",
+  "Отвели взгляд — и прилетит %1": "Look away — and here comes %1",
   "работать": "working",
   "учиться": "learning",
   "исследовать": "exploring",

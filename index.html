@@ -201,7 +201,20 @@
   #bar #brand{animation-delay:.02s} #bar #lang{animation-delay:.08s}
   #bar #gear{animation-delay:.14s}
 
-  .hero{position:relative;margin:auto;width:100%;max-width:74rem;
+  /* Роман: «сайт не на весь экран, а какой-то тонкий, правая и левая стороны
+     пустые». Было 74rem — на экране 1728 это 272 px пустоты с каждой стороны,
+     на 1920 — по 368. Стало 96rem с запасом на поля.
+
+     min() обязателен: без него на 1440 содержимое упёрлось бы в самый край.
+     Так на широком экране страница растягивается, а на обычном сама
+     останавливается, не доходя до кромки.
+
+     ВАЖНО: шире становится только СОДЕРЖИМОЕ — карточки, лента, год, вопросы.
+     Сам текст по-прежнему держит меру (лид 52ch, абзацы разделов 47.5rem,
+     ответ в вопросах 58ch). Строка во весь экран не читается, и растягивать
+     её вместе с блоками было бы не «просторнее», а хуже. */
+  .hero{position:relative;margin:auto;width:100%;
+    max-width:min(96rem, calc(100% - 2.5rem));
     padding:clamp(76px,9vh,104px) clamp(20px,5vw,40px) clamp(48px,7vh,80px)}
   .phero{text-align:center;max-width:56rem;margin:0 auto}
   .phero>*{animation:rise .62s cubic-bezier(.22,.68,0,1) both}
@@ -373,7 +386,7 @@
     margin-bottom:13px;font-variant-numeric:tabular-nums}
   .steps li:nth-child(1) .stepN{background:#e7f0ff;color:#1d5fd0}
   .steps li:nth-child(2) .stepN{background:#e4f6e8;color:#1c7a36}
-  .steps li:nth-child(3) .stepN{background:#ffeede;color:#b35f09}
+  .steps li:nth-child(3) .stepN{background:#ffeede;color:#a15508}   /* 4.07 → 4.85 */
   .steps b{display:block;font-size:var(--t5);font-weight:620;letter-spacing:-.022em;color:var(--ink)}
   .steps em{display:block;margin-top:7px;font-style:normal;font-size:var(--t7);
     line-height:1.45;color:var(--mut)}
@@ -383,16 +396,60 @@
      Текст внутри меру держит — иначе строка растянулась бы на весь экран. */
   .pwall{max-width:none}
   .pwall .plbl,.pwall h2,.pwall .pyText{max-width:47.5rem}
-  .wall{margin-top:26px;display:grid;gap:10px;
-    grid-template-columns:repeat(auto-fill,minmax(min(13rem,30%),1fr))}
-  .wall img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;
-    border-radius:12px;background:var(--card);
-    transition:transform .3s cubic-bezier(.22,.68,0,1)}
-  /* Только при настоящей мыши: на сенсорном экране hover срабатывает
-     по касанию, и плитки дёргались бы прямо во время прокрутки. */
-  @media (hover:hover) and (pointer:fine){
-    .wall img:hover{transform:scale(1.035)}
-  }
+  /* ---------- Бесконечная лента реакций ----------
+     Роман: «сделать какую-то вещь на сайте, которая бесконечно движется,
+     вот в notion вправо-влево движутся их компании».
+
+     У Notion едут ЛОГОТИПЫ КЛИЕНТОВ. У нас клиентов нет, и выдумывать их
+     нельзя — то же правило, по которому мы не рисуем отзывы и не выдумываем
+     цены. Зато есть 56 настоящих сцен, и это ровно то, ради чего сюда пришли.
+
+     КАК УСТРОЕН БЕСШОВНЫЙ КРУГ. Внутри дорожки список лежит ДВАЖДЫ,
+     и дорожка едет на -50%. В тот миг, когда первая копия ушла влево,
+     вторая стоит ровно на её месте — шва не видно и перескока нет.
+     Список обязан дублироваться ЦЕЛИКОМ: покажешь полторы копии —
+     стык станет виден на каждом круге.
+
+     ЗАЗОР ЗАДАН margin-right У КАРТИНКИ, А НЕ gap У ДОРОЖКИ, и это не
+     вкусовщина. При gap ширина дорожки = сумма плиток + (2n−1) зазоров,
+     и ровно половина этого НЕ равна одной копии: не хватает одного зазора,
+     лента дёргается на каждом круге. С margin-right каждая копия весит
+     n×(плитка+зазор), половина совпадает с копией до пикселя. */
+  .ribbon{margin-top:26px;display:flex;flex-direction:column;gap:10px;
+    /* Края растворяются, иначе плитки обрубались бы ровной линией
+       и лента читалась бы как сетка, которую не доскроллили. */
+    -webkit-mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent);
+    mask-image:linear-gradient(90deg,transparent,#000 7%,#000 93%,transparent)}
+  .rrow{overflow:hidden}
+  .rtrack{display:flex;width:max-content;
+    animation:ribbonRun 96s linear infinite}
+  /* Вторая дорожка едет НАВСТРЕЧУ и чуть быстрее: две одинаковые полосы
+     в одну сторону читаются как одна толстая, встречное движение — как лента. */
+  .rrow:nth-child(2) .rtrack{animation-direction:reverse;animation-duration:74s}
+  @keyframes ribbonRun{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .rtrack img{height:clamp(84px,9.4vw,132px);width:auto;aspect-ratio:16/10;
+    object-fit:cover;display:block;border-radius:12px;
+    margin-right:10px;background:var(--card)}
+  /* Пока идёт слежение, стартовый экран спрятан — но css-анимация продолжала бы
+     тикать и отнимать кадры у детекции. Та же причина, по которой здесь
+     запрещено полноэкранное размытие. */
+  #idle.gone .rtrack{animation-play-state:paused}
+
+  /* ---------- Подпись раздела — цветная плашка ----------
+     Ниже героя страница была сплошь чёрно-белой. Цвет добавлен ПО ПРАВИЛУ
+     «цвет = род вещи»: плашка метит раздел, как у Notion метят строки.
+     Новых оттенков не заводим — те же пастельные пары, что у чипов в карточках
+     и у плашки в заголовке. Подложка светлая, текст тёмный, поэтому читается
+     одинаково при любом фоне под ней. */
+  #idle section > .plbl{display:inline-block;
+    font-weight:540;letter-spacing:-.005em;
+    padding:4px 10px;border-radius:999px;margin-bottom:10px;
+    background:var(--lbl-bg);color:var(--lbl-ink)}
+  .lb1{--lbl-bg:#e7f0ff;--lbl-ink:#1d5fd0}
+  .lb2{--lbl-bg:#e4f6e8;--lbl-ink:#1c7a36}
+  .lb3{--lbl-bg:#ffeede;--lbl-ink:#a15508}
+  .lb4{--lbl-bg:#ece1ff;--lbl-ink:#6b3fd6}
+  .lb5{--lbl-bg:#ffe9a8;--lbl-ink:#7a5200}
   .wallNote{margin-top:16px;font-size:var(--t8);color:var(--mut2)}
 
   /* ---------- приватность ----------
@@ -540,7 +597,10 @@
   .pchip{font-size:var(--t9);font-weight:540;padding:4px 9px;border-radius:999px}
   .pchip.a{background:#e7f0ff;color:#1d5fd0}
   .pchip.b{background:#e4f6e8;color:#1c7a36}
-  .pchip.c{background:#ffeede;color:#b35f09}
+  /* #b35f09 давал 4.07 при норме 4.5 — чип не проходил с самого начала,
+     нашлось при замере новых подписей разделов. Тон сохранён, светлота
+     убавлена до прохождения нормы: 4.85. Тот же приём, что с --mut2 и акцентом. */
+  .pchip.c{background:#ffeede;color:#a15508}
   .pshot,.pcard .demo{margin-top:18px;border-radius:14px 14px 0 0;overflow:hidden;
     aspect-ratio:16/10;background:#000}
   .pshot img{width:100%;height:100%;object-fit:cover;display:block}
@@ -577,8 +637,20 @@
   /* Знак виден всегда, как и шестерёнка: он и есть логотип продукта,
      а не прибор. Приборы (статус, перерыв, занятие, кадры) — только при слежении. */
   #bar > *:not(#gear):not(#brand):not(#lang):not(#nav){opacity:0;pointer-events:none;transition:opacity .35s ease}
-  #lang{transition:opacity .35s ease}
-  #bar.on > #lang{opacity:0;pointer-events:none}
+  #lang{transition:opacity .28s ease,width .32s cubic-bezier(.22,.68,0,1),
+    padding .32s cubic-bezier(.22,.68,0,1),margin .32s cubic-bezier(.22,.68,0,1)}
+  /* В работе переключатель не просто гаснет, а СХЛОПЫВАЕТСЯ.
+     Роман 21 сентября: «хочу чтоб кнопки сместились ближе к focus guard».
+     Причина была ровно здесь: спрятанный прозрачностью «RU» продолжал держать
+     49 px плюс зазор, и приборы стояли на 59 px правее, чем должны.
+     Замерено: статус начинался на 208, знак кончался на 139.
+
+     margin-right:-10px обязателен: у #bar стоит gap:10px, и при нулевой ширине
+     между знаком и статусом осталось бы ДВА зазора вместо одного. Минус зазор
+     съедает лишний. */
+  #bar.on > #lang{opacity:0;pointer-events:none;
+    width:0;min-width:0;padding-left:0;padding-right:0;border-width:0;
+    margin-right:-10px;overflow:hidden;white-space:nowrap}
   #brand{display:flex;align-items:center;gap:9px;color:var(--ink);flex:none;
     margin-right:4px;user-select:none}
   #brand svg{width:22px;height:auto;display:block;opacity:.85}
@@ -1422,6 +1494,9 @@
     #menu.on button,#langMenu.on button{animation:none!important}
     #bar #brand,#bar #lang,#bar #gear{animation:none!important}
     .pyear .yearLeg{transition-delay:0s!important}
+    /* Лента останавливается совсем. Смена картинок тут css-ная, поэтому
+       лечится css-ом — в отличие от гифок в карточках, где это делает JS. */
+    .rtrack{animation:none!important}
     #sheet{transform:none!important;transition:opacity .2s ease!important}
     #wiz{transform:none!important}
     /* пик приложения без «вваливания»: слово просто проявляется */
@@ -1476,6 +1551,50 @@
     #nav{display:none}
   }
 
+  /* ---------- ТРЕКИНГ РАЗНЫЙ ДЛЯ КИРИЛЛИЦЫ И ЛАТИНИЦЫ ----------
+     Роман заметил: «почему сайт выглядит дёшево только на русском, а на всех
+     остальных дорого, даже на азербайджанском». Причина наполовину в том,
+     что родной язык читаешь, а чужой видишь как графику. Но вторая половина
+     настоящая и меряется.
+
+     У кириллицы почти нет выносных элементов — тех самых b d f h k l p q g y,
+     которые у латиницы торчат вверх и вниз и рвут строку. Зато есть длинные
+     ряды одинаковых вертикальных штрихов: и н п ц ш щ м. При тугом трекинге
+     «прилетит» превращается в забор из шести одинаковых палок, а английское
+     «and here comes» при том же трекинге держится за счёт k, d, h.
+
+     Наши значения взяты у Notion, а Notion набран ЛАТИНИЦЕЙ. Перенести их
+     на кириллицу один в один было ошибкой: то, что там читается как плотность,
+     здесь читается как теснота.
+
+     Поэтому у кириллических языков трекинг крупного текста ослаблен примерно
+     на .016em. Латиница (en/uz/az) остаётся как была — ей тугой трекинг идёт.
+     Проверено снимком: при -.048 русское «прилетит» слипается, при -.03 дышит.
+
+     Мелкого текста это НЕ касается: там трекинг и так около нуля. */
+  html[lang="ru"] #idle h1,
+  html[lang="kk"] #idle h1,
+  html[lang="ky"] #idle h1{letter-spacing:-.030em}
+
+  html[lang="ru"] .pmark,
+  html[lang="kk"] .pmark,
+  html[lang="ky"] .pmark{letter-spacing:-.018em}
+
+  html[lang="ru"] .pstep h2, html[lang="ru"] .pwall h2, html[lang="ru"] .pmode h2,
+  html[lang="ru"] .pfaq h2,  html[lang="ru"] .pvs h2,   html[lang="ru"] .pyear h2,
+  html[lang="ru"] .ptar h2,
+  html[lang="kk"] .pstep h2, html[lang="kk"] .pwall h2, html[lang="kk"] .pmode h2,
+  html[lang="kk"] .pfaq h2,  html[lang="kk"] .pvs h2,   html[lang="kk"] .pyear h2,
+  html[lang="kk"] .ptar h2,
+  html[lang="ky"] .pstep h2, html[lang="ky"] .pwall h2, html[lang="ky"] .pmode h2,
+  html[lang="ky"] .pfaq h2,  html[lang="ky"] .pvs h2,   html[lang="ky"] .pyear h2,
+  html[lang="ky"] .ptar h2{letter-spacing:-.021em}
+
+  html[lang="ru"] .privBig, html[lang="ru"] .pend h2, html[lang="ru"] .stHead h1,
+  html[lang="kk"] .privBig, html[lang="kk"] .pend h2, html[lang="kk"] .stHead h1,
+  html[lang="ky"] .privBig, html[lang="ky"] .pend h2, html[lang="ky"] .stHead h1{
+    letter-spacing:-.026em}
+
   @media (max-width:440px){
     #brand b{display:none}
     /* Последние пиксели: поля шапки с 18 до 12. Прятать показания кадров
@@ -1488,8 +1607,8 @@
        ничего не давал: чип держал свои 300 px. Разрешаем сжиматься именно ему,
        многоточие у #task b уже настроено. */
     #task{min-width:0;flex:0 1 auto}
-    /* Скрытый переключатель всё равно держал 49 px и толкал шестерёнку.
-       На широком экране оставляем плавное исчезновение, здесь место важнее. */
+    /* На широком экране переключатель теперь схлопывается плавно (см. выше),
+       а здесь убираем его сразу: на 375 px каждый пиксель на счету. */
     #bar.on > #lang{display:none}
     #gear{flex:none}
   }</style>
@@ -1630,7 +1749,7 @@
       <div class="pcard rv" style="--rvd:90ms">
         <p class="plbl">Как ловит</p>
         <h3>Взгляд, поворот головы, телефон в руке.</h3>
-        <div class="pchips"><span class="pchip c">478 точек лица</span></div>
+        <div class="pchips"><span class="pchip c">три режима</span><span class="pchip a">под ваш экран</span></div>
         <div class="pshot snShots" id="snBox" aria-hidden="true">
           <img src="sn/1.jpg" alt="" class="on">
           <img src="sn/2.jpg" alt="" loading="lazy">
@@ -1673,7 +1792,7 @@
       <p class="plbl">Реакции</p>
       <h2 id="wallH">Сцены из кино.</h2>
       <p class="pyText">Выберите любую — или поставьте свой файл: гифку, webp или видео.</p>
-      <div class="wall" id="idleWall" aria-hidden="true"></div>
+      <div class="ribbon" id="idleWall" aria-hidden="true"></div>
       <p class="wallNote">осуждение · злость · грусть · соберись · ради чего</p>
     </section>
 
@@ -3411,10 +3530,8 @@ $('go2').addEventListener('click',()=>$('go').click());
    «в фокусе» и «Ни одного отвлечения», и русские слова на английской
    странице выглядели бы как недоделка.
 
-   СЕЙЧАС В ТРЕТЬЕЙ КАРТОЧКЕ ЕГО НЕТ — там гифки «Волка» (Роман попросил
-   21 сентября). Файлы product-work-*.jpg лежат на месте, и строка ждёт
-   снимок обратно: вернуть — это одна строка разметки. Проверка на null
-   стояла тут с самого начала, поэтому сейчас строка просто молчит. */
+   Снимок вернулся в третью карточку 21 сентября ночью: карточка обещает
+   цифры, и показывать она должна цифры, а не кадр из кино. */
 { const w=$('shotWork'); if(w) w.src='product-work-'+LANG+'.jpg'; }
 $('stop').addEventListener('click',stopAll);
 $('setupAll').addEventListener('click', startSetup);
@@ -4434,6 +4551,12 @@ function drawIdleYear(){
 
    Растворение .9 с намеренно медленное: это фон карточки, а не событие.
    Быстрая смена рядом с текстом дёргала бы взгляд от чтения. */
+/* ---------- Кадры из «Социальной сети» в средней карточке ----------
+   Роман попросил их вернуть 21 сентября ночью: «мне нравится как получились
+   карточки, может лучше как было». Схема лицевых точек, которая тут стояла,
+   убрана вместе со своими стилями — мёртвого кода не оставляем.
+
+   Растворение .9 с намеренно медленное: это фон карточки, а не событие. */
 const SN = 8, SN_MS = 10000, SN_FADE = 900;
 {
   const box = $('snBox');
@@ -4451,8 +4574,7 @@ const SN = 8, SN_MS = 10000, SN_FADE = 900;
       i = (i+1) % SN;
       /* Следующий кадр кладём в ТОЛЬКО ЧТО УШЕДШИЙ элемент и только после
          того, как он полностью погас: поменяй src сразу — подмена была бы
-         видна прямо во время растворения. Заодно это и есть предзагрузка:
-         к следующей смене через 10 с картинка уже в кэше. */
+         видна прямо во время растворения. Заодно это и есть предзагрузка. */
       setTimeout(()=>{ ушёл.src = 'sn/' + (((i+1) % SN) + 1) + '.jpg'; }, SN_FADE + 60);
     }, SN_MS);
   }
@@ -4480,7 +4602,24 @@ for(const q of document.querySelectorAll('.faqQ')){
    Цвета берутся из уже существующей пастельной семьи (.pchip a/b/c + жёлтый
    плашки); пятый, сиреневый, заведён специально под пятое слово. Подложка
    светлая, текст тёмный — читается одинаково в обеих темах. */
-const ROT = ['работать','учиться','исследовать','экспериментировать','создавать'];
+/* СЛОВА В ПЛАШКЕ — НАСТОЯЩИЕ РЕАКЦИИ ИЗ ПОЛКИ, а не абстрактные глаголы.
+   Это починка главного изъяна страницы. Прежний заголовок «Место, где вы
+   начинаете работать» подошёл бы Notion, Slack, коворкингу и кофейне —
+   он не говорил ничего об ЭТОМ продукте, а всю работу делал лид под ним
+   мелким серым. «Отвели взгляд — и прилетит Шрек» не может сказать никто
+   другой. Механику, которая Роману понравилась, сохранили целиком: слово
+   меняется раз в 2,6 с и красится вместе с точкой.
+
+   Имена отобраны по трём условиям, и все три обязательны:
+   1) стоят в полке на самом деле — иначе заголовок обещает то, чего нет;
+   2) читаются в именительном падеже после «прилетит» — «прилетит Фейспалм»
+      или «прилетит Аплодисменты» не годятся, поэтому взяты только герои;
+   3) КОРОТКИЕ. У плашки white-space:nowrap, слово обязано влезть целиком,
+      и на «экспериментировать» (18 букв) страница однажды уже давала
+      прокрутку вбок на 375 px. Здесь самое длинное — 14.
+
+   Имена уже лежат в словарях как названия плиток, поэтому переводятся сами. */
+const ROT = ['Шрек','Халк','Тони Старк','Хоумлендер','Доктор Стрэндж'];
 /* Пары «подложка → точка». Густой оттенок берётся из той же семьи, что
    у плашек в карточках (.pchip a/b/c), чтобы не разводить новых цветов. */
 const ROTBG  = ['#ffe9a8','#e7f0ff','#e4f6e8','#ffeede','#ece1ff'];
@@ -4490,7 +4629,7 @@ function buildHero(){
   const h=$('heroH1'); if(!h) return;
   /* Собираем один раз: дальше меняется только текст внутри #rotWord,
      иначе при каждой смене заново проигрывалась бы прочерчивающая анимация. */
-  h.innerHTML = tf('Место, где вы начинаете %1',
+  h.innerHTML = tf('Отвели взгляд — и прилетит %1',
     '<span class="pmark"><i></i><span id="rotWord"></span></span>');
   const w=$('rotWord'); if(!w) return;
   let i=0;
@@ -4511,27 +4650,56 @@ function buildHero(){
 }
 buildHero();
 
-/* Стена реакций на стартовой. Обложки — те же настоящие .jpg, что в полке,
-   список берётся из REACTS: добавил гифку — она появилась и здесь.
-   loading="lazy" обязателен: 56 обложек это около 450 КБ, и разом они не нужны,
-   до стены ещё надо долистать. */
+/* Бесконечная лента реакций. Обложки — те же настоящие .jpg, что в полке,
+   список берётся из REACTS: добавил гифку — она поехала и здесь.
+
+   Здесь ВСЕ 56, а не двадцать, как было в неподвижной сетке. Двадцать брались
+   потому, что 56 плиток сеткой — это четыре лишних экрана прокрутки. У ленты
+   такой беды нет: высота у неё постоянная, а чем длиннее список, тем позже
+   виден повтор. Заголовок обещает 56 — теперь их и видно 56. */
 function drawIdleWall(){
   const box=$('idleWall'); if(!box) return;
   const файлы = REACTS.filter(r=>r[0]);   // у «просто надписи» файла нет
-  /* На витрине двадцать, а не все пятьдесят шесть — Роман попросил сократить.
-     Берём РОВНО через равные промежутки по списку, а не первые двадцать:
-     список отсортирован по категориям, и первые двадцать были бы сплошным
-     «осуждением». Так в кадр попадают все пять настроений. */
-  const N = Math.min(20, файлы.length);
-  const показ = Array.from({length:N}, (_,i)=>
-    файлы[Math.round(i*(файлы.length-1)/(N-1))]);
-  box.innerHTML = показ
-    .map(r=>'<img src="reactions/'+r[0]+'.jpg" alt="" loading="lazy" decoding="async">')
-    .join('');
-  /* В заголовке остаётся НАСТОЯЩЕЕ число доступных реакций, а не число плиток:
-     показываем двадцать, но в приложении их действительно 56. */
+  /* Делим ЧЕРЕЗ ОДНУ, а не пополам: список отсортирован по категориям,
+     и верхняя половина подряд была бы сплошным «осуждением», а нижняя —
+     сплошным «ради чего». Через одну в обеих дорожках все пять настроений. */
+  const верх = файлы.filter((_,i)=>i%2===0);
+  const низ  = файлы.filter((_,i)=>i%2===1);
+  const дорожка = список =>
+    '<div class="rrow"><div class="rtrack">' +
+    [...список, ...список]          // копия обязана быть полной, см. css
+      .map(r=>'<img data-s="reactions/'+r[0]+'.jpg" alt="" decoding="async">')
+      .join('') +
+    '</div></div>';
+  box.innerHTML = дорожка(верх) + дорожка(низ);
+
+  /* Картинки цепляем не сразу: 56 обложек это около 1,4 МБ, а до ленты ещё
+     надо долистать. loading="lazy" тут НЕ ГОДИТСЯ — плитки уезжают вбок
+     внутри overflow:hidden, и браузер подтягивал бы их рывками прямо
+     во время движения. Поэтому ставим все src разом, когда дошли до ленты. */
+  const включить = () => {
+    for(const img of box.querySelectorAll('img[data-s]')){
+      img.src = img.dataset.s; img.removeAttribute('data-s');
+    }
+  };
+  if('IntersectionObserver' in window){
+    const наб = new IntersectionObserver(сп=>{
+      if(сп.some(x=>x.isIntersecting)){ включить(); наб.disconnect(); }
+    }, {rootMargin:'400px'});
+    наб.observe(box);
+  } else включить();
+
   const h=$('wallH');
   if(h) h.textContent = tf('%1 из кино.', plural(файлы.length,'сцена','сцены','сцен'));
+}
+
+/* Подписи разделов красим по кругу пятью пастельными парами. Цвет тут метит
+   раздел — это «цвет = род вещи», а не украшение. Карточек это НЕ касается:
+   у них уже есть свои цветные чипы, и два цветных пятна в маленькой карточке
+   были бы шумом. */
+{
+  const подписи = document.querySelectorAll('#idle section > .plbl');
+  подписи.forEach((el,i)=> el.classList.add('lb'+(i%5+1)));
 }
 drawIdleWall();
 drawIdleYear();
